@@ -14,7 +14,7 @@ Deadline: GitHub Pages site final on **Nov 25, 11:59 PM America/Phoenix** (assum
 |----|-------|---------------------------|--------------|
 | WS1 | Repo scaffold, mesh, transient nonlinear solver, verification ladder, integration/merging | `claude/project-thread-3ve605` | Build brake disc heat solver |
 | WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `claude/project-thread-1qs3ox` | adjoint + optimizer thread |
-| WS4 | Website: GitHub Pages report (10 sections), three.js viewer (8 requirements) | _fill in_ | |
+| WS4 | Website: GitHub Pages report (10 sections), three.js viewer (8 requirements) | `website` | Build the project report website |
 | WS5 | GUIDE.md beginner guide (each WS also adds notes to its own GUIDE section) | `claude/project-thread-c068hs` | guide thread |
 
 Rules for every branch:
@@ -250,8 +250,36 @@ Code lives in `optim/` (does not touch `brakeopt/`):
 **Plain-language note (for GUIDE.md)**
 - The *adjoint* answers "if I make vane 5 a little thicker, how much hotter or cooler does the hottest point on the disc get during the whole braking sequence?" for all 24 dimensions at once. It does that by running the heat simulation once forward in time, then running one extra, cheaper "backward" calculation from the last stop to the first, which tracks how much each moment's temperatures influence the final peak. Checking against brute force (nudging each dimension and re-running the simulation) proves the numbers are right.
 
-## WS4: Website
-_not started_
+## WS4: Website (branch `website`)
+**Done**
+- `docs/_config.yml`, `docs/_layouts/default.html` (Jekyll 3.10, MathJax 3.2.2 and three.js 0.160.0 pinned), `docs/assets/css/site.css` (light/dark, phone width).
+- `docs/index.md`: the report with all 10 handout sections + Reproducibility. **No number is typed in it**: `docs/assets/js/report.js` fills every value, table and plot from `results.json` at page load (spans `class="rj" data-k=/data-calc=/data-param=`, `<div class="rj-table" data-table=...>`, `<div class="rj-plot" data-plot=...>`). Missing keys show "pending", nothing breaks. So `python scripts/run_all.py` alone regenerates every number on the site; no extra build step.
+- `docs/assets/js/viewer.js`: 3D viewer meeting the 8 requirements: initial vs optimized side by side with one shared camera; quarter sector mirrored (y, z) and rotated `n_vanes` times; draws `mesh.faces` sets except `sym*`; single-hue "Oranges" scale with colour bar and limit marks; over-limit faces hatched (shader), so not colour-only; faces subdivided with the bilinear face shape functions; play/scrub heating animation through the stops with a peak-T/speed chart; hover/tap tooltip (element, surface, radius, T now, peak, margin); metrics panel with pass/fail; dropdown to put `optimized_linear` on the right (N2 comparison).
+- `docs/assets/js/data.js`: loads `assets/results.json`; falls back to `assets/mock_results.json` (red MOCK banner) if it is missing, or with `?mock` in the URL.
+- `scripts/make_mock_results.py` writes `docs/assets/mock_results.json` (never `results.json`).
+- `tests/test_site.py`: every table/plot/calc key used in index.md exists in report.js; results.json has what the viewer needs.
+- Tested with Jekyll 3.10 + headless Chromium at 1280 px and 390 px against both the mock and WS1's real initial-design results.json: loads in about 1 s, no horizontal scroll, hover works, hatching shows on an over-limit design.
+
+**Plain-language note (for GUIDE.md)**: The website is the report. It is a normal Markdown page, but when it opens in a browser a small script reads `results.json` and writes every number, table and plot into the page, so nothing can go stale. The 3D viewer takes the small slice of the disc the solver computed, mirrors and copies it into the whole disc, colours it by temperature, and lets you play the three stops to see where the iron gets hot and how much hotter the lighter disc runs.
+
+**In progress**
+- nothing (waiting for real optimized results to check the page against them).
+
+**Next**
+- Re-check the live page once `designs.optimized`, `optimized_linear`, `sensitivities`, `optimization` land; adjust tables if their shapes differ from below.
+- After the first merge to main: Settings → Pages → Deploy from a branch → `main` / `/docs` (Sivan has to click this once), then check math and the viewer on the live URL.
+
+**Blocked on / requests**
+- WS2+3: the report reads these shapes (add keys freely; anything else falls back to a generic table):
+  - `sensitivities.gradient_check`: list of `{function, variable, adjoint, fd, rel_error}`
+  - `sensitivities.taylor`: `{eps: [...], <any series name>: [...]}` (log-log; e.g. `err_fd`, `err_adjoint`)
+  - `sensitivities.cost`: `{n_vars, forward_s, adjoint_s, fd_s}`
+  - `optimization.algorithm`, `optimization.scaling` (strings)
+  - `optimization.starts`: list of `{name, iterations, final_mass_kg, converged, history: {iter: [...], mass_kg: [...], g_face_C: [...]}}`
+  - `optimization.active`: list of `{constraint, multiplier, unit, meaning}` (meaning = one-line engineering interpretation)
+  - `designs.optimized` / `designs.optimized_linear`: same shape as `designs.initial` (incl. `history`, `mesh.faces`).
+- WS1: optional `true_max_C` next to `value_C` in the two temperature constraints (KS vs true peak is shown when present).
+- AI-use statement (section 10): each WS please list one bug the verification caught in your section; I will quote them.
 
 ## WS5: Guide (GUIDE.md)
 

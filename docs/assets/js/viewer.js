@@ -75,7 +75,9 @@ function build(data) {
   }
   const step = tMax - tMin > 300 ? 50 : 10;
   tMin = Math.floor(tMin / step) * step;
-  const cMax = Math.ceil(tMax / step) * step;
+  // keep every finite limit inside the scale, with one step of headroom above the highest
+  const lims = Object.values(D).flatMap((d) => limitFor(d)).filter(Number.isFinite);
+  const cMax = Math.ceil(Math.max(tMax, ...lims.map((l) => l + step)) / step) * step;
 
   // ---------- DOM ----------
   if (data.meta && data.meta.mock)
@@ -275,7 +277,11 @@ function build(data) {
     g.font = "11px system-ui, sans-serif";
     if (spd) {
       g.fillStyle = "rgba(127,127,127,0.14)";
-      for (let i = 0; i < hT.length - 1; i++) if (isBraking(i)) g.fillRect(X(hT[i]), T, X(hT[i + 1]) - X(hT[i]) + 0.5, ph);
+      for (let i = 0; i < hT.length - 1; i++) {
+        if (!isBraking(i)) continue;
+        let j = i; while (j < hT.length - 1 && isBraking(j)) j++; // merge a whole stop into one band
+        g.fillRect(X(hT[i]), T, X(hT[j]) - X(hT[i]), ph); i = j;
+      }
     }
     g.strokeStyle = muted; g.lineWidth = 1; g.strokeRect(L, T, pw, ph);
     g.fillStyle = muted; g.textAlign = "right";

@@ -230,13 +230,23 @@ const PLOTS = {
   },
   mms(r) {
     const c = r.convergence;
-    if (!c?.mms_space) return null;
-    const sp = c.mms_space, tm = c.mms_time;
-    const a = plot({ xlog: true, ylog: true, xlabel: "element size h (m)", ylabel: "L2 error", width: 320, height: 260,
-      series: [{ x: sp.h, y: sp.err_L2 ?? sp.err, label: "space" }, slopeRef(sp.h, sp.err_L2 ?? sp.err, 2, "slope 2")] });
-    const b = tm ? plot({ xlog: true, ylog: true, xlabel: "time step Δt (s)", ylabel: "error", width: 320, height: 260,
-      series: [{ x: tm.dt, y: tm.err, label: "time", color: COLORS[1] }, slopeRef(tm.dt, tm.err, 1, "slope 1")] }) : "";
-    return `<div class="rj-pair">${a}${b}</div>`;
+    if (!c) return null;
+    const NAMES = { mms_space: "Manufactured solution, space", mms_time: "Manufactured solution, time",
+      kirchhoff: "Nonlinear k(T) slab (Kirchhoff), space", radiation_time: "Radiation-cooled lump, time" };
+    const out = [];
+    let k = 0;
+    for (const [name, v] of Object.entries(c)) {
+      if (!v || typeof v !== "object") continue;
+      const xk = ["h", "h_rel", "dt"].find((q) => Array.isArray(v[q]));
+      const yk = ["err_L2", "err"].find((q) => Array.isArray(v[q]));
+      if (!xk || !yk) continue;
+      const p = xk === "dt" ? 1 : 2;
+      const xl = xk === "dt" ? "time step Δt (s)" : xk === "h_rel" ? "relative element size h" : "element size h (m)";
+      out.push(`<figure>${plot({ xlog: true, ylog: true, xlabel: xl, ylabel: "error", width: 330, height: 260,
+        series: [{ x: v[xk], y: v[yk], label: v.slope !== undefined ? `measured slope ${fmt(v.slope, 2)}` : "error", color: COLORS[k++ % COLORS.length] },
+                 slopeRef(v[xk], v[yk], p, `slope ${p}`)] })}<figcaption>${NAMES[name] || name}</figcaption></figure>`);
+    }
+    return out.length ? `<div class="rj-pair">${out.join("")}</div>` : null;
   },
   newton(r) {
     const n = r.convergence?.newton?.residuals;

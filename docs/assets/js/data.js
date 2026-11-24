@@ -43,16 +43,20 @@ export function get(obj, path) {
 
 // Constraint rows of one design, plus the thickness bounds checked from d.
 export function constraintRows(data, design) {
-  const rows = (design.constraints || []).map((c) => ({
-    name: c.label || prettyName(c.name),
-    key: c.name,
-    value: c.value_C ?? c.value,
-    trueMax: c.true_max_C,
-    limit: c.limit_C ?? c.limit,
-    unit: c.value_C !== undefined ? "°C" : c.unit || "",
-    sense: c.sense || "<=",
-    pass: c.pass,
-  }));
+  const rows = (design.constraints || []).map((c) => {
+    const mm = c.value_mm !== undefined;
+    return {
+      name: c.label || prettyName(c.name),
+      key: c.name,
+      value: c.value_C ?? c.value_mm ?? c.value,
+      trueMax: c.true_max_C,
+      limit: c.limit_C ?? c.limit_mm ?? c.limit,
+      unit: c.value_C !== undefined ? "°C" : mm ? "mm" : c.unit || "",
+      sense: c.sense || (mm ? ">=" : "<="),
+      pass: c.pass,
+    };
+  });
+  if (rows.some((r) => /thick/i.test(r.key))) return rows; // solver already reports the bounds
   const tvMin = param(data, "tv_min"), tcMin = param(data, "tc_min");
   const dd = design.d || {};
   if (tvMin !== undefined && dd.vane_thickness_mm)
