@@ -110,9 +110,9 @@ class BusbarModel:
             dT = T - p.T_amb
             h = self.C_nc * (dT * dT + p.nc_delta ** 2) ** 0.125
             return h * dT + es * (T ** 4 - p.T_amb ** 4)
-        dl = p.T_lin - p.T_amb
+        dl = p.dT_lin_h
         h = self.C_nc * (dl * dl + p.nc_delta ** 2) ** 0.125
-        Tl = p.T_lin
+        Tl = p.T_lin_rad
         return h * (T - p.T_amb) + es * (Tl ** 4 - p.T_amb ** 4 + 4 * Tl ** 3 * (T - Tl))
 
     # ------------------------------------------------------------------ local residuals

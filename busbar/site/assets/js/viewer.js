@@ -141,7 +141,7 @@ function build(data) {
   function setView() {
     const Lb = left.geo.xMid * 2;
     target.set(0, 0, 0);
-    camera.position.set(0.35 * Lb, -0.9 * Lb, 0.55 * Lb);
+    camera.position.set(0.3 * Lb, -1.35 * Lb, 0.85 * Lb);
     views.forEach((v) => v.controls.update());
   }
 

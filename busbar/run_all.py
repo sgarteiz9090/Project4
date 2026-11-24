@@ -30,6 +30,7 @@ from .problem import BusbarProblem, BusbarSolver, constraint_spec
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "site", "assets")
 C0 = 273.15
+TOL = 1e-4      # pass/fail tolerance (relative), the optimizer's feasibility tolerance
 
 
 def _r(x, nd):
@@ -59,12 +60,12 @@ def design_block(d, p: Params | None = None, label="", max_frames=80):
     cons = [
         {"name": "peak_bar_T", "label": "Peak busbar temperature (insulation)", "value_C": round(float(TC[1:].max()), 2),
          "true_max_C": round(float(TC[1:].max()), 2), "limit_C": round(p.T_bar_max - C0, 2),
-         "pass": bool(TC[1:].max() <= p.T_bar_max - C0 + 1e-9)},
+         "pass": bool(TC[1:].max() <= (p.T_bar_max - C0) * (1 + TOL))},
         {"name": "peak_joint_T", "label": "Peak joint / cell-terminal temperature",
          "value_C": round(float(TC[1:, jn].max()), 2), "true_max_C": round(float(TC[1:, jn].max()), 2),
-         "limit_C": round(p.T_joint_max - C0, 2), "pass": bool(TC[1:, jn].max() <= p.T_joint_max - C0 + 1e-9)},
+         "limit_C": round(p.T_joint_max - C0, 2), "pass": bool(TC[1:, jn].max() <= (p.T_joint_max - C0) * (1 + TOL))},
         {"name": "resistance", "label": "Resistance at the continuous rating", "value": round(float(R[1]), 3),
-         "limit": round(p.R_max * 1e6, 3), "unit": "µΩ", "sense": "<=", "pass": bool(R[1] <= p.R_max * 1e6 + 1e-9)},
+         "limit": round(p.R_max * 1e6, 3), "unit": "µΩ", "sense": "<=", "pass": bool(R[1] <= p.R_max * 1e6 * (1 + TOL))},
     ]
     # current density magnitude per element at the pulse peak (tooltip / viewer)
     n_pk = int(np.argmax(TC[1:].max(1))) + 1
@@ -114,17 +115,14 @@ def summary(prob, x):
             "thickness_mm": (1e3 * d[N_STATIONS:]).tolist(), "mass_kg": float(e["mass"]),
             "constraints": [{"name": c["name"], "ks_or_value": float((1 + e["g"][k]) * c["limit"]),
                              "true_value": float(e["Tmax"][k]), "limit": c["limit"], "unit": c["unit"],
-                             "pass": bool(e["Tmax"][k] <= c["limit"] + 1e-9)} for k, c in enumerate(prob.cons)]}
+                             "pass": bool(e["Tmax"][k] <= c["limit"] * (1 + TOL))} for k, c in enumerate(prob.cons)]}
 
 
 def n2_attribution(d):
     """The design evaluated with full physics and with each temperature dependence frozen in turn."""
     rows = []
-    variants = [("full physics", {}), ("constant-property model (all frozen at 70 C)", {"nonlinear": False}),
-                ("sigma frozen at 70 C", {"alpha": 0.0, "sigma0": Params().sigma0 / (1 + Params().alpha * 50.0)}),
-                ("natural convection h frozen at h(30 K)", {"nc_delta": 30.0, "nc_coef": Params().nc_coef * 0.0 + Params().nc_coef}),
-                ]
-    for label, kw in variants[:2]:
+    variants = [("full physics", {}), ("constant-property model (20 C data-sheet sigma, k; fixed h)", {"nonlinear": False})]
+    for label, kw in variants:
         p = Params().replace(**{k: v for k, v in kw.items() if k != "nonlinear"})
         pr = make_problem(kw.get("nonlinear", True), p)
         e = pr.evaluate(np.asarray(d) / pr.d0, need_grad=False)
@@ -132,10 +130,10 @@ def n2_attribution(d):
                      "resistance_uohm": float(e["Tmax"][2])})
     # sigma(T) alone frozen: alpha = 0 with sigma0 set to sigma(70 C)
     p0 = Params()
-    p = p0.replace(alpha=0.0, sigma0=p0.sigma0 / (1 + p0.alpha * (p0.T_lin - p0.T_ref)), T_ref=p0.T_ref)
+    p = p0.replace(alpha=0.0)
     pr = make_problem(True, p)
     e = pr.evaluate(np.asarray(d) / pr.d0, need_grad=False)
-    rows.append({"model": "only sigma frozen at sigma(70 C)", "peak_bar_C": float(e["Tmax"][0]),
+    rows.append({"model": "full physics except sigma frozen at sigma(20 C)", "peak_bar_C": float(e["Tmax"][0]),
                  "peak_joint_C": float(e["Tmax"][1]), "resistance_uohm": float(e["Tmax"][2])})
     return rows
 

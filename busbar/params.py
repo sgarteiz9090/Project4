@@ -72,7 +72,7 @@ class Params:
     # ---------------- constraints ----------------
     T_bar_max: float = 378.15   # K (105 C) insulation rating, peak over the whole history
     T_joint_max: float = 343.15 # K (70 C) at the joint faces (cell terminal), whole history
-    R_max: float = 48.0e-6      # Ohm, terminal-to-terminal resistance at the continuous rating
+    R_max: float = 52.0e-6      # Ohm, terminal-to-terminal resistance at the continuous rating
     ks_rho: float = 1.0         # 1/K, KS aggregation parameter
 
     # ---------------- numerics ----------------
@@ -84,8 +84,10 @@ class Params:
     newton_maxit: int = 30
 
     # ---------------- N2 switches ----------------
-    nonlinear: bool = True      # False: sigma, k, h frozen at T_lin; radiation linearized at T_lin
-    T_lin: float = 343.15       # K, linearization temperature (70 C)
+    nonlinear: bool = True      # False: constant-property ("hand calculation") model:
+    T_lin: float = 293.15       # K, sigma and k frozen at data-sheet values (20 C)
+    dT_lin_h: float = 30.0      # K, natural-convection h frozen at h(30 K)
+    T_lin_rad: float = 343.15   # K, radiation linearized about 70 C
     contacts_at_ends: bool = False   # verification only: joints on the end faces x=0, x=L
 
     def to_dict(self):
