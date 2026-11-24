@@ -23,6 +23,7 @@ const CALC = {
   mass_saving_kg: (r) => diff(r.designs?.initial?.mass_kg, r.designs?.optimized?.mass_kg),
   face_peak_initial: (r) => con(r, "initial", "peak_face_T")?.true_max_C ?? con(r, "initial", "peak_face_T")?.value_C,
   face_peak_optimized: (r) => con(r, "optimized", "peak_face_T")?.true_max_C ?? con(r, "optimized", "peak_face_T")?.value_C,
+  hub_peak_initial: (r) => con(r, "initial", "peak_hub_T")?.true_max_C ?? con(r, "initial", "peak_hub_T")?.value_C,
   hub_peak_optimized: (r) => con(r, "optimized", "peak_hub_T")?.true_max_C ?? con(r, "optimized", "peak_hub_T")?.value_C,
   face_limit: (r) => con(r, "initial", "peak_face_T")?.limit_C,
   hub_limit: (r) => con(r, "initial", "peak_hub_T")?.limit_C,
@@ -33,6 +34,10 @@ const CALC = {
   n_nodes: (r) => r.designs?.initial?.mesh?.nodes?.length,
   n_elems: (r) => r.designs?.initial?.mesh?.hexes?.length,
   n_frames: (r) => r.designs?.initial?.temperature?.frames?.length,
+  start_spread_g: (r) => {
+    const m = r.optimization?.spread_mass_kg || (r.optimization?.starts || []).map((s) => s.final_mass_kg);
+    return m && m.length > 1 ? 1000 * (Math.max(...m) - Math.min(...m)) : undefined;
+  },
   linear_mass_delta_pct: (r) => pct(r.designs?.optimized?.mass_kg, r.designs?.optimized_linear?.mass_kg),
 };
 function pct(a, b) { return a && b !== undefined ? (100 * (a - b)) / a : undefined; }

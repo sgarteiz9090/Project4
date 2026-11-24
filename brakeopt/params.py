@@ -74,7 +74,7 @@ class Params:
 
     # ---------------- constraints ----------------
     T_face_max: float = 973.15      # K (700 C)
-    T_hub_max: float = 523.15       # K (250 C) aluminium bell / wheel-bearing protection
+    T_hub_max: float = 493.15       # K (220 C) wheel-bearing grease: NLGI GC-LB dropping point (ASTM D2265 / D4950); DOT3 fluid boiling 205 C (FMVSS 116)
     ks_rho: float = 1.0             # 1/K, KS aggregation parameter (owned by WS2+3): KS within ~3-5 K of the true peak
 
     # ---------------- numerics ----------------

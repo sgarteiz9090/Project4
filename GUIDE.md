@@ -10,7 +10,7 @@
 
 We designed the **brake disc of a race car**: the spinning iron disc that the brake pads squeeze. We want it **as light as possible**, because every kilogram that spins and bounces with the wheel hurts acceleration and grip. But if we take too much iron away, the disc **gets too hot** during hard braking and cracks or loses grip ("brake fade"), and the heat soaks into the hub and **cooks the wheel bearing**. So the question is: *where exactly can we remove iron, and where must we keep it?* With 24 dimensions to tune, guessing by hand is hopeless. We wrote a program that (1) simulates how heat flows through the disc during three hard stops, (2) works out, for all 24 dimensions at once, "if I make this a bit thinner, how much hotter does the disc get?", and (3) gives that information to an optimizer, which keeps removing weight until the temperature limit is just barely met.
 
-**The headline result:** the disc went from **9.25 kg to 7.12 kg (23 % lighter)** and still keeps the rubbing surface under 700 °C. If you leave out the nonlinear physics (the fact that hot iron conducts heat worse), the optimizer produces a 6.68 kg disc that actually reaches **722.5 °C** and would crack. So the nonlinear part of the model is what keeps the design safe.
+**The headline result:** the disc went from **9.25 kg to 7.20 kg (22 % lighter)** and still keeps the rubbing surface under 700 °C and the hub under 220 °C. If you leave out the nonlinear physics (the fact that hot iron conducts heat worse), the optimizer produces a 6.85 kg disc that actually reaches **722.8 °C** and would crack. So the nonlinear part of the model is what keeps the design safe.
 
 ---
 
@@ -45,7 +45,7 @@ The handout says every problem has the form *"minimize something, subject to lim
 | **Design variables** `d` (the knobs we turn) | The 24 numbers the optimizer is allowed to change | Vane thickness at 12 radii from inner to outer edge (2 to 8 mm), plus cheek thickness at the same 12 radii (5 to 12 mm). Starting design: all vanes 5 mm, all cheeks 9 mm |
 | **Objective** `f` (what we minimize) | The thing we want small | Mass of the whole disc |
 | **Constraint 1** | Don't overheat the rubbing surface | Peak friction-face temperature ≤ 700 °C. Above this, grey cast iron cracks and pads fade (Limpert, *Brake Design and Safety*; Day, *Braking of Road Vehicles*) |
-| **Constraint 2** | Don't cook the wheel bearing | Peak temperature where the disc bolts to the hub ≤ 250 °C (protects the aluminium bell and wheel bearing) |
+| **Constraint 2** | Don't cook the wheel bearing | Peak temperature where the disc bolts to the hub ≤ 220 °C. That is the minimum dropping point (the temperature where it turns liquid and runs out) of NLGI GC-LB wheel-bearing grease (ASTM D4950), and it is also below the 230 °C minimum boiling point of DOT 4 brake fluid (FMVSS 116) |
 | **Constraint 3** | Don't make parts impossibly thin | The thickness bounds above: 2 mm vanes are about the casting limit; 5 mm cheeks leave pad-wear allowance and strength |
 | **The "state"** `u` | What the physics tells us once the knobs are set | The temperature at every point of the slice at every moment of the braking run |
 
@@ -72,7 +72,7 @@ The handout says every problem has the form *"minimize something, subject to lim
           │    the 24 knobs        ▲                      ▼                │
           │    this way")          └──────────── [4] ADJOINT: gradients    │
           │                                      of every score w.r.t.     │
-          │                                      all 24 knobs (~2.5 s)     │
+          │                                      all 24 knobs (~2.4 s)     │
           └───────────────────────────────────────────────────────────────┘
                      │ when nothing improves any more
                      ▼
@@ -165,8 +165,8 @@ The handout also asks for the optimized design **with and without** the nonlinea
 
 | | Optimized with full physics | Optimized with the linear model |
 |---|---|---|
-| Mass | 7.12 kg | 6.68 kg |
-| Peak face temperature, re-checked with full physics | 695.9 °C ✓ | **722.5 °C ✗ (fails 700 °C)** |
+| Mass | 7.20 kg | 6.85 kg |
+| Peak face temperature, re-checked with full physics | 695.8 °C ✓ | **722.8 °C ✗ (fails 700 °C)** |
 
 Why the difference: if you pretend hot iron conducts as well as it does at 200 °C, the model under-predicts the peak by about 34 °C. Simplifying radiation goes the other way (it over-predicts by about 9 °C), but that is smaller. So **the temperature-dependent conductivity is what changes the design**, and leaving it out gives a disc that looks fine on paper but would crack.
 
@@ -178,7 +178,7 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 
 **Analogy.** Instead of asking "who is the tallest person in the room?" (the answer jumps when someone stands up), you compute a weighted average that is dominated by the tallest few people. It gives almost the same answer, but it changes gradually.
 
-**A tuning decision that mattered.** The KS function has a "sharpness" setting (ρ). With the first setting (0.1 per K), the soft max sat about 47 °C above the true face peak and 65 °C above the hub peak. That would have forced a needlessly heavy disc. At 1.0 per K it sits only 3 to 5 °C above. At the optimum, the KS value is exactly 700.0 °C while the true peak is 695.9 °C.
+**A tuning decision that mattered.** The KS function has a "sharpness" setting (ρ). With the first setting (0.1 per K), the soft max sat about 47 °C above the true face peak and 65 °C above the hub peak. That would have forced a needlessly heavy disc. At 1.0 per K it sits only 3 to 5 °C above. At the optimum, the face KS value is exactly 700.0 °C while the true peak is 695.8 °C, and the hub KS value is exactly 220.0 °C while the true peak is 215.4 °C.
 
 ### 4.6 Verification: proving the solver is right before trusting it
 
@@ -205,9 +205,9 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 
 **What a gradient is.** For each of the 24 thicknesses, the gradient says: *if I make this thickness slightly bigger, how much does the peak temperature (or the mass) change?* It is a list of 24 sensitivities, one per knob, for each score.
 
-**The slow way (finite differences).** Nudge knob 1, rerun the whole braking simulation, and see what changed. Repeat for all 24 knobs. On our model that takes **85 seconds** for one gradient, and the optimizer needs a gradient every iteration.
+**The slow way (finite differences).** Nudge knob 1, rerun the whole braking simulation, and see what changed. Repeat for all 24 knobs. On our model that takes **87 seconds** for one gradient, and the optimizer needs a gradient every iteration.
 
-**The clever way (the adjoint method).** Run the simulation once forward. Then run **one backward pass**, and out come the sensitivities of both temperature constraints to *all 24 knobs at once*. On our model it takes **2.5 seconds, about 20× faster**. The gap grows with the number of knobs, because the adjoint's cost doesn't depend on how many there are.
+**The clever way (the adjoint method).** Run the simulation once forward. Then run **one backward pass**, and out come the sensitivities of both temperature constraints to *all 24 knobs at once*. On our model it takes **2.4 seconds, about 22× faster**. The gap grows with the number of knobs, because the adjoint's cost doesn't depend on how many there are.
 
 **Analogy.** You're at a party and want to know how much each of 24 guests added to the noise. The slow way: ask each guest to leave, one at a time, and measure. The adjoint way: record the room once, then play the recording backward through a model of the room's acoustics, and it tells you every guest's contribution in one pass.
 
@@ -218,7 +218,7 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 **How we proved the gradients are right.**
 - **Gradient-check table:** the adjoint answer against the brute-force (central finite difference) answer, for mass, the face constraint and the hub constraint, on both vane and cheek thicknesses. They agree to about **9 digits** (worst case 8e-8 of the gradient size).
 - **Taylor test plot:** as the finite-difference step ε shrinks, the mismatch falls like ε² (100× smaller per 10× smaller step) until round-off takes over. A flat line would mean a bug.
-- **Cost comparison:** forward 1.8 s, adjoint 2.5 s, finite differences 85 s.
+- **Cost comparison:** forward 1.8 s, adjoint 2.4 s, finite differences 87 s.
 
 ### 4.8 The optimizer (SLSQP)
 
@@ -228,38 +228,46 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 
 **What we did, following the handout's rules:**
 - **Scaling:** the optimizer works with `x = d / d₀`, mass divided by the starting mass, and constraints written as `KS/limit − 1 ≤ 0`, so every number is around 1. Optimizers behave badly when one number is 0.003 and another is 700.
-- **Three starting designs:** the baseline, every thickness at its maximum, and every thickness halfway between its bounds. **All three ended at 7.12 kg**, within 0.0015 kg of each other. That strongly suggests we found the real best design, not a local dip.
+- **Three starting designs:** the baseline, every thickness at its maximum, and every thickness halfway between its bounds. **All three ended at 7.20 kg**, within 0.0001 kg of each other. That strongly suggests we found the real best design, not a local dip.
 - **History saved** for every iteration (design, mass, temperatures) for the convergence plot.
 
 **What the optimized disc looks like, and why it makes sense:**
-- **Vanes** at stations 1 to 11 went to the 2 mm minimum. Thin vanes are cheap in weight and the air still flows.
+- **Vanes** at stations 2 to 11 went to the 2 mm minimum. Thin vanes are cheap in weight and the air still flows.
 - The **outermost vane** went to its 8 mm maximum: that's where the most heat goes in, and the extra iron conducts it away from the face.
-- **Inner cheeks** (stations 1 to 7, inside the pad band) went to the 5 mm minimum. The pad doesn't rub there, so the iron does little work.
-- **Outer cheeks** stay thick (9.4 to 10.9 mm). That iron acts as a heat sponge in the band the pad rubs on, absorbing each stop's heat.
+- **Inner cheeks** (stations 2 to 7, inside the pad band) went to the 5 mm minimum. The pad doesn't rub there, so the iron does little work.
+- **Right at the hub** (station 1), the optimizer keeps a little extra iron: a 2.4 mm vane and a 6.8 mm cheek. This appeared once the hub limit became active. Our reading (not separately tested) is that this iron acts as a small buffer that soaks up heat before it reaches the hub.
+- **Outer cheeks** stay thick (9.3 to 11.0 mm). That iron acts as a heat sponge in the band the pad rubs on, absorbing each stop's heat.
 
 ### 4.9 Reading the answer: KKT conditions and multipliers
 
-At the optimum, some constraints are **active** (pressed against their limit) and some are **inactive** (comfortably met).
+At the optimum, a constraint is **active** if the design is pressed against its limit, and **inactive** if it is comfortably met. In our design **both temperature limits are active**.
 
 | Constraint | Value at the optimum | Status |
 |---|---|---|
-| Friction face ≤ 700 °C | KS 700.0 °C (true peak 695.9 °C) | **Active** |
-| Hub ≤ 250 °C | 233 °C | Inactive (17 °C of margin) |
+| Friction face ≤ 700 °C | KS 700.0 °C (true peak 695.8 °C) | **Active** |
+| Hub ≤ 220 °C | KS 220.0 °C (true peak 215.4 °C) | **Active** |
 | Thickness bounds | many at their limits (section 4.8) | Active bounds |
 
 Each active constraint has a **Lagrange multiplier**, which has a concrete meaning:
 
 > **The multiplier is how much disc mass we would save if that limit were relaxed by one unit.**
 
-Ours is **0.0196 kg per °C**, about **20 g per degree**. So a pad and disc material that tolerated 710 °C instead of 700 °C would let us save about **0.2 kg**. The hub limit has a multiplier of zero because it isn't active: relaxing it would save nothing. The rubric asks for exactly this kind of engineering reading.
+Ours:
+
+| Limit | Multiplier | What it means |
+|---|---|---|
+| Friction face | **0.0188 kg per °C** (about 19 g per degree) | A pad and disc material that tolerated 710 °C instead of 700 °C would save about **0.19 kg** |
+| Hub | **0.0058 kg per °C** (about 6 g per degree) | A grease rated 10 °C higher would save only about **0.06 kg** |
+
+So the face limit is worth about three times as much per degree as the hub limit: it is still the main thing sizing the disc. The hub limit costs a little extra iron near the hub. The rubric asks for exactly this kind of engineering reading.
 
 ### 4.10 Bonus: design under uncertainty
 
 A driver won't always brake from exactly 250 km/h. We also designed for three scenarios at once: nominal, **20 km/h faster** (270 → 80 km/h), and **5 % more front brake bias**.
 
-- The nominal 7.12 kg optimum would reach **785 °C** in the faster scenario, so it's fragile.
-- The **robust design** passes all six constraints (two per scenario) at **9.66 kg**, which is 2.5 kg heavier than the nominal optimum. That is the price of the safety margin.
-- The constraint that decides it is the face temperature in the faster scenario, with a multiplier of 0.062 kg per °C.
+- The nominal 7.20 kg optimum would reach **785 °C** on the face and 235 °C at the hub in the faster scenario, and 746 °C with more front bias. So it fails in both off-nominal cases.
+- The **robust design** passes all six constraints (two per scenario) at **9.67 kg**, which is 2.5 kg heavier than the nominal optimum. That is the price of the safety margin.
+- The constraints that decide it are the face and hub temperatures in the faster scenario, with multipliers of 0.059 and 0.0046 kg per °C.
 - Each scenario's gradients were also checked against finite differences (about 9 digits).
 
 This earns the optional **+5 "design under uncertainty" bonus**.
@@ -281,7 +289,7 @@ This earns the optional **+5 "design under uncertainty" bonus**.
 
 The report itself has the 10 sections the handout lists (Summary, Formulation, Analysis model, Verification, Sensitivities, Optimization, Nonlinear component, Results table, Bonus, Limitations + AI-use statement).
 
-**One thing only you can do:** turn on GitHub Pages in the repository: **Settings → Pages → Deploy from a branch → `main`, folder `/docs`**. Then open the site in a private browser window to check it, and submit both links (repository and site) on Canvas.
+**The site is live** at <https://sgarteiz9090.github.io/Project4/> (GitHub Pages serves the `docs/` folder of `main`). Open it in a private browser window to check it, then submit both links (repository and site) on Canvas.
 
 ---
 
@@ -325,14 +333,14 @@ The report itself has the 10 sections the handout lists (Summary, Formulation, A
 | Structure and formulation | 10 | Brake disc motivation, 24 variables, mass objective, cited temperature limits | 2 |
 | Analysis code and verification | 20 | Our own FE heat solver + the 10-test ladder, all passing | 4.1–4.6 |
 | Sensitivity analysis | 20 | Transient adjoint, gradient-check table (about 9 digits), Taylor plot, 20× cost comparison | 4.7 |
-| Optimization | 15 | SLSQP, scaling, 3 starts that agree, active constraint and its multiplier interpreted | 4.8–4.9 |
-| Nonlinear component | 15 | k(T) + radiation with Newton; the linear-model design fails at 722.5 °C | 4.4 |
+| Optimization | 15 | SLSQP, scaling, 3 starts that agree, both active constraints and their multipliers interpreted | 4.8–4.9 |
+| Nonlinear component | 15 | k(T) + radiation with Newton; the linear-model design fails at 722.8 °C | 4.4 |
 | Website and 3D comparison | 10 | Pages site, all 8 viewer requirements, math renders | 4.11 |
 | Reproducibility | 5 | `python scripts/run_all.py` regenerates results.json and so every number | 4.11 |
 | Presentation and clarity | 5 | Readable report (and this guide helps you explain it) | all |
 | Bonus: fully nonlinear | +5 | N2 with Newton + implicit gradients + nonlinear benchmarks V3, V4 | 4.4, 4.6 |
 | Bonus: time dependence | +5 | Adjoint swept backward through the three stops, checked by FD | 4.7 |
-| Bonus: uncertainty | +5 | Three braking scenarios, robust 9.66 kg design | 4.10 |
+| Bonus: uncertainty | +5 | Three braking scenarios, robust 9.67 kg design | 4.10 |
 
 The bonus is capped at +15, and we target all three bonuses.
 
@@ -341,7 +349,7 @@ The bonus is capped at +15, and we target all three bonuses.
 ## 7. Things to watch / open risks
 
 - **Structure approval.** The handout says teams proposing their own structure needed instructor approval by Nov 4. A brake disc is close to the menu's "heat sink" (the vanes act like fins), but it is not on the menu. Worth a short email to the instructor.
-- **Turn on GitHub Pages** (section 4.11) and check the live site in a private window. Math only renders on the live site, not on github.com.
+- **Check the live site** (<https://sgarteiz9090.github.io/Project4/>) in a private window before submitting. Math only renders on the live site, not on github.com.
 - **Deadline:** the final site is due Nov 25; the commit at the deadline is graded.
 - **Limitations worth stating in the report:** the coarse optimizer mesh reads the peak about 5 °C low (V9); the convection coefficients come from textbook correlations, not measurement; mechanical stress and thermal distortion (coning) are not modelled.
 
@@ -358,7 +366,7 @@ The handout requires: *"what the coding agent wrote, which parts you derived or 
 > | Mesh generator (`brakeopt/mesh.py`) | Agent | V2 (rotation invariance), V5 (manufactured solution on the curved mesh), V10 (every boundary face in exactly one set) |
 > | Heat solver + Newton (`brakeopt/model.py`, `solver.py`) | Agent | Ladder V1–V9 against exact solutions; Newton quadratic convergence (V8); energy balance to 2e-16 (V7) |
 > | Adjoint gradients (`optim/adjoint.py`) | Agent | Adjoint vs central finite differences for every constraint and both variable types (agree to about 9 digits); Taylor test |
-> | Optimization (`optim/optimize.py`) | Agent | Three starting designs reach the same 7.12 kg; constraints re-checked at the optimum; linear-model optimum re-checked with full physics |
+> | Optimization (`optim/optimize.py`) | Agent | Three starting designs reach the same 7.20 kg; constraints re-checked at the optimum; linear-model optimum re-checked with full physics |
 > | Website and 3D viewer (`docs/`) | Agent | Automated test that every number on the page exists in results.json; checked by hand against the 8 viewer requirements at desktop and phone width |
 >
 > **Bugs the verification caught:**
@@ -370,12 +378,14 @@ The handout requires: *"what the coding agent wrote, which parts you derived or 
 
 ## 9. Explaining it in 30 seconds
 
-> "We designed a lighter race-car brake disc. Our own finite-element code simulates how heat from the pads spreads through the disc during three hard stops, including the fact that hot iron conducts heat worse and that a hot disc glows heat away. The adjoint method tells us, in one backward pass, how every one of the 24 thicknesses affects the peak temperature, and we checked those gradients against brute force to 9 digits. The optimizer then cut the disc from 9.25 to 7.12 kg, keeping iron only in the band the pad rubs on. The only limit that stops it is 700 °C on the rubbing surface, and each extra degree allowed would save about 20 grams. If you ignore the nonlinear physics, you get a lighter disc that actually reaches 722 °C and cracks."
+> "We designed a lighter race-car brake disc. Our own finite-element code simulates how heat from the pads spreads through the disc during three hard stops, including the fact that hot iron conducts heat worse and that a hot disc glows heat away. The adjoint method tells us, in one backward pass, how every one of the 24 thicknesses affects the peak temperature, and we checked those gradients against brute force to 9 digits. The optimizer then cut the disc from 9.25 to 7.20 kg, keeping iron mainly in the band the pad rubs on. Two limits stop it: 700 °C on the rubbing surface and 220 °C at the hub, where the wheel-bearing grease would start to run. Each extra degree allowed on the face would save about 19 grams. If you ignore the nonlinear physics, you get a lighter disc that actually reaches 723 °C and cracks."
 
 ---
 
 ## 10. Change log of this guide
 
 - 2026-11-24, first draft from the project plan, before any code existed.
+- 2026-11-24, GitHub Pages is live; removed the "turn on Pages" to-do.
+- 2026-11-24, hub limit changed to 220 °C (grease dropping point). Updated to the rerun: 7.20 kg optimum, both limits active (multipliers 0.0188 and 0.0058 kg/°C), linear-model design 6.85 kg failing at 722.8 °C, robust design 9.67 kg.
 - 2026-11-24, checked every number against the final full-run results.json (timings updated: forward 1.8 s, adjoint 2.5 s, FD 85 s).
 - 2026-11-24, updated with what was actually built: mesh and scenario details, the 10-test ladder results, gradient-check and cost numbers, the optimized design and its multiplier, the with/without-nonlinearity comparison, the uncertainty bonus, the website features, and a filled-in AI-use statement draft with three caught bugs.

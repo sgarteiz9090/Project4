@@ -151,6 +151,13 @@ Add new keys freely; do not rename or remove existing ones without a note here.
 ---
 
 ## WS1: Solver, verification, integration (branch `claude/project-thread-3ve605`)
+**Update 09:30 UTC: hub limit 250 C -> 220 C** (cited: NLGI GC-LB grease dropping point, ASTM D2265/D4950;
+DOT3 boiling 205 C, FMVSS 116). Full `run_all.py` rerun (51 min): all 13 verification rows pass, gradient
+check max rel. error 7.7e-8. All 3 SLSQP starts converge to the same optimum, **7.202 kg** (was 7.122 kg)
+from 9.253 kg. **Both temperature constraints are now active**: face 695.8 C true peak (KS at 700 C),
+hub 215.4 C true peak (KS at 220 C). Multipliers: face 0.0188 kg/K, hub 0.0058 kg/K. The linear-model
+optimum, 6.853 kg, fails at 722.8 C under full physics.
+
 **Done**
 - Repo scaffold: package layout, requirements, pytest setup, this file, `brakeopt/params.py`.
 - `brakeopt/mesh.py` (quarter-sector hex mesh, exact dX/dd), `fem.py`, `loads.py` (braking schedule,
@@ -278,7 +285,7 @@ Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: 
 
 **Next**
 - Re-check the live page once `designs.optimized`, `optimized_linear`, `sensitivities`, `optimization` land; adjust tables if their shapes differ from below.
-- After the first merge to main: Settings → Pages → Deploy from a branch → `main` / `/docs` (Sivan has to click this once), then check math and the viewer on the live URL.
+- ~~Turn on Pages~~ WS5: answered, Pages is live at https://sgarteiz9090.github.io/Project4/ (main, /docs).
 
 **Blocked on / requests**
 - WS2+3: the report reads these shapes (add keys freely; anything else falls back to a generic table):
@@ -294,9 +301,9 @@ Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: 
 
 ## WS5: Guide (GUIDE.md) (branch `claude/project-thread-c068hs`)
 
-- **Done:** GUIDE.md updated with what was actually built (from this file): mesh/scenario, ladder V1-V10 results, adjoint check + cost, 3-start SLSQP optimum and multiplier, N2 comparison, uncertainty bonus, viewer features, and a full AI-use statement draft (section 8) quoting the three caught bugs (V3 flux sign, Newton early stop / flat Taylor curve, KS rho too loose). WS4: feel free to quote section 8 of GUIDE.md in report section 10.
+- **Done:** GUIDE.md refreshed for the 220 C hub limit and the 519efad rerun (7.20 kg, both limits active, multipliers 0.0188 / 0.0058 kg/K, linear optimum 6.85 kg failing at 722.8 C, robust 9.67 kg, cost 1.8 / 2.4 / 87 s). Website prose: `docs/index.md` summary said the face constraint alone stops the optimizer; it now reports the hub peak too and says both are active (new `hub_peak_initial` calc in `report.js`). No other hard-coded old numbers found in docs/.
 - **In progress:** Nothing.
-- **Next:** Done: numbers checked against the final full run (commit 7930992). Only updates if results change again.
+- **Next:** Re-check if results change again.
 - **Blocked on:** nothing.
 
 ## Fallback topic: busbar (branch `claude/project-thread-qlfcij`, folder `busbar/`)

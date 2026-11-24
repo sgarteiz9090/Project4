@@ -12,7 +12,7 @@ title: Race-car brake disc optimization
 
 ## 1. Summary
 
-We minimize the mass of a vented race-car brake rotor while keeping the rubbing faces below the grey-iron cracking and fade limit and the hub below the bearing-protection limit through a sequence of hard stops from 250 to 80 km/h. The optimizer removes <span class="rj" data-calc="mass_saving_kg" data-d="2"></span> kg (<span class="rj" data-calc="mass_saving_pct" data-d="1"></span> %) of iron, going from <span class="rj" data-k="designs.initial.mass_kg" data-d="2"></span> kg to <span class="rj" data-k="designs.optimized.mass_kg" data-d="2"></span> kg. The peak friction-face temperature rises from <span class="rj" data-calc="face_peak_initial" data-d="0"></span> °C to <span class="rj" data-calc="face_peak_optimized" data-d="0"></span> °C against a limit of <span class="rj" data-calc="face_limit" data-d="0"></span> °C, so the face-temperature constraint is the one that stops the optimizer.
+We minimize the mass of a vented race-car brake rotor while keeping the rubbing faces below the grey-iron cracking and fade limit and the hub below the bearing-protection limit through a sequence of <span class="rj" data-param="n_stops" data-d="0"></span> hard stops from <span class="rj" data-param="v_high" data-scale="3.6" data-d="0"></span> to <span class="rj" data-param="v_low" data-scale="3.6" data-d="0"></span> km/h. The optimizer removes <span class="rj" data-calc="mass_saving_kg" data-d="2"></span> kg (<span class="rj" data-calc="mass_saving_pct" data-d="1"></span> %) of iron, going from <span class="rj" data-k="designs.initial.mass_kg" data-d="2"></span> kg to <span class="rj" data-k="designs.optimized.mass_kg" data-d="2"></span> kg. The peak friction-face temperature rises from <span class="rj" data-calc="face_peak_initial" data-d="0"></span> °C to <span class="rj" data-calc="face_peak_optimized" data-d="0"></span> °C against a limit of <span class="rj" data-calc="face_limit" data-d="0"></span> °C, and the peak hub temperature rises from <span class="rj" data-calc="hub_peak_initial" data-d="0"></span> °C to <span class="rj" data-calc="hub_peak_optimized" data-d="0"></span> °C against a limit of <span class="rj" data-calc="hub_limit" data-d="0"></span> °C. Both temperature constraints are active at the optimum: together they stop the optimizer.
 
 <div class="kpis">
   <div class="kpi"><b><span class="rj" data-k="designs.optimized.mass_kg" data-d="2"></span> kg</b><span>optimized rotor mass (initial <span class="rj" data-k="designs.initial.mass_kg" data-d="2"></span> kg)</span></div>
@@ -35,7 +35,7 @@ The left disc is the initial design and the right disc the optimized one, colour
 
 ### Why this part matters
 
-A race car's front brake discs turn the car's kinetic energy into heat: a stop from 250 to 80 km/h dumps several hundred kilojoules into each front disc in about three seconds. The disc must store that heat and then shed it, mostly through the radial cooling channels between its two friction rings ("cheeks"), which are joined by vanes that pump air like a centrifugal fan. The disc is also **rotating, unsprung mass**: every gram costs acceleration, braking and grip over bumps. Too little iron and the rubbing faces overheat (pad fade, thermal cracking of grey cast iron) and heat soaks through the hub into the wheel bearing and brake fluid. The question is where iron can be removed and where it must stay.
+A race car's front brake discs turn the car's kinetic energy into heat: a stop from <span class="rj" data-param="v_high" data-scale="3.6" data-d="0"></span> to <span class="rj" data-param="v_low" data-scale="3.6" data-d="0"></span> km/h dumps several hundred kilojoules into each front disc in about three seconds. The disc must store that heat and then shed it, mostly through the radial cooling channels between its two friction rings ("cheeks"), which are joined by vanes that pump air like a centrifugal fan. The disc is also **rotating, unsprung mass**: every gram costs acceleration, braking and grip over bumps. Too little iron and the rubbing faces overheat (pad fade, thermal cracking of grey cast iron) and heat soaks through the hub into the wheel bearing and brake fluid. The question is where iron can be removed and where it must stay.
 
 ### Design variables
 
@@ -68,7 +68,7 @@ $$
 with $S = \Gamma_{\text{fric}}$ (pad rubbing band) for $g_{\text{face}}$ and $S = \Gamma_{\text{hub}}$ (hub face $r=r_i$) for $g_{\text{hub}}$. We take $\rho = \rho_K T_{\lim}$ with $\rho_K = 1\ \mathrm K^{-1}$, so KS sits within a few kelvin above the true peak; the report shows both.
 
 - $T_{\text{face}}^{\max}$ = <span class="rj" data-calc="face_limit" data-d="0"></span> °C on the pad rubbing band: above about 700 °C grey cast iron rotors suffer heat checking and cracking and pad friction fades (Limpert, *Brake Design and Safety*, 3rd ed., SAE 2011, ch. 3; Day, *Braking of Road Vehicles*, 2014, ch. 3).
-- $T_{\text{hub}}^{\max}$ = <span class="rj" data-calc="hub_limit" data-d="0"></span> °C on the hub / bell mounting face, protecting wheel bearing grease and brake fluid (source in `brakeopt/params.py`).
+- $T_{\text{hub}}^{\max}$ = <span class="rj" data-calc="hub_limit" data-d="0"></span> °C on the hub / bell mounting face, the heat path into the wheel bearing. Wheel-bearing grease of the NLGI GC grade must have a dropping point of at least 220 °C (ASTM D4950; NLGI GC-LB specification, table 10.3), and DOT 4 brake fluid a dry boiling point of at least 230 °C (FMVSS 116, 49 CFR 571.116 S5.1.1). The mounting face must therefore stay at or below the grease dropping point.
 - Minimum thicknesses are the lower bounds above.
 
 ## 3. Analysis model
@@ -102,7 +102,7 @@ $$
 \mathbf R_n = \mathbf M\,\frac{\mathbf T_n-\mathbf T_{n-1}}{\Delta t_n} + \mathbf K(\mathbf T_n)\,\mathbf T_n + \mathbf H_n\,(\mathbf T_n - T_\infty) + \mathbf r_{\text{rad}}(\mathbf T_n) - \mathbf q_n = \mathbf 0 .
 $$
 
-**Load case.** Three stops 250 → 80 km/h at 1.5 g with re-acceleration between them, starting from a 200 °C disc.
+**Load case.** <span class="rj" data-param="n_stops" data-d="0"></span> stops from <span class="rj" data-param="v_high" data-scale="3.6" data-d="0"></span> to <span class="rj" data-param="v_low" data-scale="3.6" data-d="0"></span> km/h at <span class="rj" data-param="decel" data-scale="0.10194" data-d="2"></span> g, with <span class="rj" data-param="t_accel" data-d="0"></span> s of re-acceleration between them, starting from a disc at <span class="rj" data-param="T_init" data-offset="-273.15" data-d="0"></span> °C.
 
 **Assumptions.** Axisymmetric (circumferentially averaged) pad heat input, since the disc turns many times per second; straight radial vanes of uniform height; no thermal contact resistance inside the casting; convection coefficients from correlations, not CFD; grey-iron properties as listed below; the pad, caliper and wheel are represented only by the partition coefficient and the hub conductance.
 
@@ -128,7 +128,7 @@ Every test is run by `scripts/run_all.py` and reported straight from `results.js
 
 ## 5. Sensitivities
 
-**State equation.** Implicit Euler from $t_{n-1}$ to $t_n$ gives one nonlinear residual per step, $\mathbf R_n(\mathbf T_n,\mathbf T_{n-1},\mathbf d) = \mathbf 0$, $n = 1,\dots,N$ (section 3). $\mathbf T_0$ (200 °C everywhere) does not depend on $\mathbf d$. Newton's tangent $\mathbf A_n = \partial\mathbf R_n/\partial\mathbf T_n$ contains $k'(T)$ and $4\varepsilon\sigma T^3$; the coupling to the previous step is $\mathbf B_n = \partial\mathbf R_n/\partial\mathbf T_{n-1} = -\mathbf M/\Delta t_n$.
+**State equation.** Implicit Euler from $t_{n-1}$ to $t_n$ gives one nonlinear residual per step, $\mathbf R_n(\mathbf T_n,\mathbf T_{n-1},\mathbf d) = \mathbf 0$, $n = 1,\dots,N$ (section 3). $\mathbf T_0$ (<span class="rj" data-param="T_init" data-offset="-273.15" data-d="0"></span> °C everywhere) does not depend on $\mathbf d$. Newton's tangent $\mathbf A_n = \partial\mathbf R_n/\partial\mathbf T_n$ contains $k'(T)$ and $4\varepsilon\sigma T^3$; the coupling to the previous step is $\mathbf B_n = \partial\mathbf R_n/\partial\mathbf T_{n-1} = -\mathbf M/\Delta t_n$.
 
 **KS partials.** $\partial g/\partial T_{i,n} = w_{i,n}/T_{\lim}$ with softmax weights $w_{i,n} = e^{\rho(a_{i,n}-\mathrm{KS})}$, $\sum w = 1$: only the hottest few node-instants carry weight. The mass $m(\mathbf d) = \rho_{\text{Fe}}\sum_e \lvert\Omega_e(\mathbf d)\rvert$ is an explicit function of the geometry, so $\mathrm dm/\mathrm d\mathbf d$ needs no adjoint.
 
@@ -164,7 +164,7 @@ The sweep runs **backward in time**: the last step is solved first, because the 
 
 ## 6. Optimization
 
-**Algorithm and scaling.** SciPy SLSQP (`ftol` = $10^{-7}$). Variables are scaled $\mathbf x = \mathbf d/\mathbf d_0$, the objective is $f = m/m_0$ and the constraints are $g_k = \mathrm{KS}_k - 1 \le 0$, so everything is of order one, as SLSQP needs. The thickness limits are passed as bounds; the two KS constraints use the adjoint gradients of section 5. Three starts (baseline, all upper bounds, midpoint of the box) show whether the optimum depends on the start; the best feasible result is reported with the spread of the others.
+**Algorithm and scaling.** SciPy SLSQP (`ftol` = $10^{-7}$). Variables are scaled $\mathbf x = \mathbf d/\mathbf d_0$, the objective is $f = m/m_0$ and the constraints are $g_k = \mathrm{KS}_k - 1 \le 0$, so everything is of order one, as SLSQP needs. The thickness limits are passed as bounds; the two KS constraints use the adjoint gradients of section 5. Three starts (baseline, all upper bounds, midpoint of the box) show whether the optimum depends on the start; the best feasible result is reported with the spread of the others. Here the final masses of all starts lie within <span class="rj" data-calc="start_spread_g" data-d="1"></span> g of each other.
 
 <div class="rj-table" data-table="starts"></div>
 
@@ -208,7 +208,7 @@ The design optimized without the nonlinear terms differs in mass by <span class=
 
 ## 10. Limitations and AI-use statement
 
-**Limitations.** Convection coefficients come from correlations, not from a CFD model of the vane channels. The pad heat is treated as circumferentially uniform. Thermal stresses and cracking are represented only through the temperature limit. The nominal design is sized for one braking scenario (the robust design in section 9 covers three). The optimizer's mesh reads the peak face temperature about 0.5 % below the mesh-converged (Richardson) value (verification V9), so the optimum is slightly unconservative.
+**Limitations.** Convection coefficients come from correlations, not from a CFD model of the vane channels. The pad heat is treated as circumferentially uniform. Thermal stresses and cracking are represented only through the temperature limit. The nominal design is sized for one braking scenario (the robust design in section 9 covers three). The optimizer's mesh reads the peak face temperature slightly below the mesh-converged (Richardson) value (verification V9 in the table of section 4), so the optimum is slightly unconservative.
 
 **AI-use statement.** The solver, adjoint, optimization scripts and this website were written with a coding agent (Claude Code), working in parallel workstreams that coordinated through a shared status file (`ainote.md`).
 
