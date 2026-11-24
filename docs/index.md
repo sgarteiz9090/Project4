@@ -189,6 +189,8 @@ The model has two nonlinear terms: temperature-dependent conductivity $k(T)$ of 
 
 <div class="rj-table" data-table="nonlinear"></div>
 
+<div class="rj-table" data-table="n2"></div>
+
 The design optimized without the nonlinear terms differs in mass by <span class="rj" data-calc="linear_mass_delta_pct" data-d="1"></span> % from the nonlinear optimum.
 
 ## 8. Results
@@ -199,6 +201,9 @@ The design optimized without the nonlinear terms differs in mass by <span class=
 
 - **Fully nonlinear (+5):** section 7; Newton per implicit-Euler step with the exact tangent and the same tangent in the adjoint.
 - **Path / time dependence (+5):** the constraints aggregate the whole braking history and the adjoint is swept backward through it (section 5).
+- **Design under uncertainty (+5):** the braking scenario (initial speed, brake bias) is sampled and the constraints are imposed robustly over the samples, with adjoint gradients for each sample.
+
+<div class="rj-table" data-table="robust"></div>
 
 ## 10. Limitations and AI-use statement
 
