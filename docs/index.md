@@ -57,17 +57,15 @@ $$
 
 ### Constraints
 
-Both temperature constraints are functionals of the transient temperature field $T(\mathbf x,t;\mathbf d)$, aggregated over space and the whole braking history with the Kreisselmeier–Steinhauser (KS) function over the nodal values $T_{a,n}$ (node $a$ of the surface set, time step $n$):
+Both temperature constraints are functionals of the transient temperature field $T(\mathbf x,t;\mathbf d)$. Each one is aggregated over a surface node set $S$ and the whole braking history with the Kreisselmeier–Steinhauser (KS) function of the normalized nodal temperatures $a_{i,n} = T_{i,n}/T_{\lim}$ (in °C; node $i$, time step $n$):
 
 $$
-g_{\text{face}} = \mathrm{KS}_\rho\big(T_{a,n}\big)_{a\in\Gamma_{\text{fric}},\,n=0..N} \le T_{\text{face}}^{\max},
+g = \mathrm{KS}_\rho(a) - 1 \le 0,
 \qquad
-g_{\text{hub}} = \mathrm{KS}_\rho\big(T_{a,n}\big)_{a\in\Gamma_{\text{hub}},\,n=0..N} \le T_{\text{hub}}^{\max},
+\mathrm{KS}_\rho(a) = a_{\max} + \frac1\rho \ln \sum_{i\in S}\sum_{n=1}^{N} e^{\rho (a_{i,n} - a_{\max})} \;\ge\; a_{\max},
 $$
 
-$$
-\mathrm{KS}_\rho(x) = x_{\max} + \frac1\rho \log \sum_i e^{\rho (x_i - x_{\max})} \;\ge\; x_{\max}.
-$$
+with $S = \Gamma_{\text{fric}}$ (pad rubbing band) for $g_{\text{face}}$ and $S = \Gamma_{\text{hub}}$ (hub face $r=r_i$) for $g_{\text{hub}}$. We take $\rho = \rho_K T_{\lim}$ with $\rho_K = 1\ \mathrm K^{-1}$, so KS sits within a few kelvin above the true peak; the report shows both.
 
 - $T_{\text{face}}^{\max}$ = <span class="rj" data-calc="face_limit" data-d="0"></span> °C on the pad rubbing band: above about 700 °C grey cast iron rotors suffer heat checking and cracking and pad friction fades (Limpert, *Brake Design and Safety*, 3rd ed., SAE 2011, ch. 3; Day, *Braking of Road Vehicles*, 2014, ch. 3).
 - $T_{\text{hub}}^{\max}$ = <span class="rj" data-calc="hub_limit" data-d="0"></span> °C on the hub / bell mounting face, protecting wheel bearing grease and brake fluid (source in `brakeopt/params.py`).
@@ -130,23 +128,26 @@ Every test is run by `scripts/run_all.py` and reported straight from `results.js
 
 ## 5. Sensitivities
 
-**Discrete adjoint, backward in time.** For any functional $J(\mathbf T_0,\dots,\mathbf T_N,\mathbf d)$ and the residuals $\mathbf R_n(\mathbf T_n,\mathbf T_{n-1},\mathbf d) = \mathbf 0$, the Lagrangian $\mathcal L = J + \sum_n \boldsymbol\lambda_n^{\mathsf T}\mathbf R_n$ is stationary in every $\mathbf T_n$ when the adjoint states satisfy, for $n = N, N-1, \dots, 1$,
+**State equation.** Implicit Euler from $t_{n-1}$ to $t_n$ gives one nonlinear residual per step, $\mathbf R_n(\mathbf T_n,\mathbf T_{n-1},\mathbf d) = \mathbf 0$, $n = 1,\dots,N$ (section 3). $\mathbf T_0$ (200 °C everywhere) does not depend on $\mathbf d$. Newton's tangent $\mathbf A_n = \partial\mathbf R_n/\partial\mathbf T_n$ contains $k'(T)$ and $4\varepsilon\sigma T^3$; the coupling to the previous step is $\mathbf B_n = \partial\mathbf R_n/\partial\mathbf T_{n-1} = -\mathbf M/\Delta t_n$.
+
+**KS partials.** $\partial g/\partial T_{i,n} = w_{i,n}/T_{\lim}$ with softmax weights $w_{i,n} = e^{\rho(a_{i,n}-\mathrm{KS})}$, $\sum w = 1$: only the hottest few node-instants carry weight. The mass $m(\mathbf d) = \rho_{\text{Fe}}\sum_e \lvert\Omega_e(\mathbf d)\rvert$ is an explicit function of the geometry, so $\mathrm dm/\mathrm d\mathbf d$ needs no adjoint.
+
+**Discrete adjoint, swept backward through the braking history.** With $\mathcal L = g + \sum_{n=1}^{N}\boldsymbol\lambda_n^{\mathsf T}\mathbf R_n$, every $\mathbf R_n = \mathbf 0$ so $\mathrm dg/\mathrm d\mathbf d = \mathrm d\mathcal L/\mathrm d\mathbf d$ for any $\boldsymbol\lambda$. $\mathbf T_n$ appears in $g$, in $\mathbf R_n$ and in $\mathbf R_{n+1}$; choosing $\boldsymbol\lambda$ to remove every $\mathrm d\mathbf T_n/\mathrm d\mathbf d$ gives
 
 $$
-\Big(\frac{\partial \mathbf R_n}{\partial \mathbf T_n}\Big)^{\mathsf T}\boldsymbol\lambda_n
-= -\frac{\partial J}{\partial \mathbf T_n} - \Big(\frac{\partial \mathbf R_{n+1}}{\partial \mathbf T_n}\Big)^{\mathsf T}\boldsymbol\lambda_{n+1},
-\qquad \boldsymbol\lambda_{N+1} = \mathbf 0,
-\qquad \frac{\partial \mathbf R_{n+1}}{\partial \mathbf T_n} = -\frac{\mathbf M}{\Delta t_{n+1}},
+\mathbf A_n^{\mathsf T}\boldsymbol\lambda_n = -\Big(\frac{\partial g}{\partial \mathbf T_n}\Big)^{\mathsf T} - \mathbf B_{n+1}^{\mathsf T}\boldsymbol\lambda_{n+1},
+\qquad \boldsymbol\lambda_{N+1} = \mathbf 0,\qquad n = N, N-1, \dots, 1,
 $$
 
-and then
-
 $$
-\frac{\mathrm d J}{\mathrm d \mathbf d} = \frac{\partial J}{\partial \mathbf d} + \sum_{n=1}^{N} \boldsymbol\lambda_n^{\mathsf T}\,\frac{\partial \mathbf R_n}{\partial \mathbf d},
-\qquad \frac{\partial \mathbf R_n}{\partial \mathbf d} = \frac{\partial \mathbf R_n}{\partial \mathbf X}\,\frac{\partial \mathbf X}{\partial \mathbf d}.
+\frac{\mathrm d g}{\mathrm d \mathbf d} = \frac{\partial g}{\partial \mathbf d} + \sum_{n=1}^{N} \boldsymbol\lambda_n^{\mathsf T}\,\frac{\partial \mathbf R_n}{\partial \mathbf d}.
 $$
 
-$\partial\mathbf R_n/\partial\mathbf T_n$ is the exact Newton tangent already used in the forward solve, so each adjoint step is one linear solve with the transposed Jacobian. One backward sweep gives the gradient with respect to all 24 variables at once. For the KS constraints, $\partial J/\partial \mathbf T_n$ is the vector of KS weights $e^{\rho(T_{a,n}-T_{\max})}/\sum e^{\rho(\cdot)}$ on the constrained nodes; for the mass, $\boldsymbol\lambda = \mathbf 0$ and only $\partial m/\partial \mathbf d$ remains.
+The sweep runs **backward in time**: the last step is solved first, because the temperature at step $n$ influences the peak through every later step. This is the path-dependent adjoint of the rubric bonus. It uses the stored forward history (small enough that no checkpointing is needed); each step costs one sparse LU of $\mathbf A_n^{\mathsf T}$, shared by both constraints as two right-hand sides. Because $\mathbf A_n$ is the exact Newton tangent at the converged state, this is implicit differentiation of the nonlinear solve (handout implementation iii).
+
+**Shape term.** $\mathbf R_n$ depends on $\mathbf d$ only through the node coordinates $\mathbf X(\mathbf d)$, which the mesh generator moves smoothly at fixed topology. $\sum_n\boldsymbol\lambda_n^{\mathsf T}\partial\mathbf R_n/\partial d_j$ is evaluated by a complex step on the residual with the states held fixed, $\partial\mathbf R_n/\partial d_j = \operatorname{Im}\mathbf R_n(\mathbf T_n,\mathbf T_{n-1},\mathbf d + i h\mathbf e_j)/h$ with $h = 10^{-30}$: exact to round-off, 24 complex residual assemblies per step, and no extra PDE solves.
+
+**How the gradients are checked.** (1) Adjoint vs. central finite differences ($h = 10^{-5} d_j$) for the mass and both KS constraints, for vane and cheek variables, with the full and the linearized model. (2) Taylor test along a random direction $\mathbf v$: $\big\lvert[g(\mathbf x+\epsilon\mathbf v)-g(\mathbf x-\epsilon\mathbf v)]/2\epsilon - \nabla g\cdot\mathbf v\big\rvert$ must fall as $\epsilon^2$ until round-off; a flat curve would mean a wrong gradient. (3) Cost of one forward solve plus one adjoint sweep against $2\times 24$ forward solves for central differences.
 
 ### Gradient check (adjoint vs. central finite differences)
 
@@ -154,7 +155,7 @@ $\partial\mathbf R_n/\partial\mathbf T_n$ is the exact Newton tangent already us
 
 <figure>
 <div class="rj-plot" data-plot="taylor"></div>
-<figcaption>Taylor test along a random direction p: the first-order remainder falls as ε and, with the adjoint gradient included, as ε² until round-off takes over.</figcaption>
+<figcaption>Taylor test along a random direction: the remainder of the central difference against the adjoint directional derivative falls as ε² (grey reference) until round-off takes over.</figcaption>
 </figure>
 
 ### Cost: adjoint vs. finite differences
@@ -163,7 +164,7 @@ $\partial\mathbf R_n/\partial\mathbf T_n$ is the exact Newton tangent already us
 
 ## 6. Optimization
 
-**Algorithm and scaling.** <span class="rj" data-k="optimization.algorithm"></span>, with <span class="rj" data-k="optimization.scaling"></span>. Bounds go straight to SLSQP; the two KS temperature constraints use the adjoint gradients above.
+**Algorithm and scaling.** SciPy SLSQP (`ftol` = $10^{-7}$). Variables are scaled $\mathbf x = \mathbf d/\mathbf d_0$, the objective is $f = m/m_0$ and the constraints are $g_k = \mathrm{KS}_k - 1 \le 0$, so everything is of order one, as SLSQP needs. The thickness limits are passed as bounds; the two KS constraints use the adjoint gradients of section 5. Three starts (baseline, all upper bounds, midpoint of the box) show whether the optimum depends on the start; the best feasible result is reported with the spread of the others.
 
 <div class="rj-table" data-table="starts"></div>
 
@@ -181,11 +182,11 @@ $\partial\mathbf R_n/\partial\mathbf T_n$ is the exact Newton tangent already us
 
 <div class="rj-table" data-table="multipliers"></div>
 
-A multiplier is the mass saved per unit relaxation of its constraint (section 11 of the KKT notes): it prices each limit in grams of iron.
+**KKT read-out.** A constraint is active when $g_k > -10^{-3}$, a bound when the variable sits on it. The multipliers solve $\nabla f + \sum_k \mu_k\nabla g_k + \sum_{\text{bounds}}\nu_i(\pm\mathbf e_i) = \mathbf 0$ with $\mu,\nu\ge 0$ (non-negative least squares), next to SLSQP's own estimates. In scaled form $\mu_k$ is the drop in $m/m_0$ per unit relaxation of $g_k$ (section 11 of the KKT notes), so $\mu_k\,m_0/T_{\lim,k}$ is the **kilograms of iron saved per kelvin of extra allowed temperature**.
 
 ## 7. Nonlinear component (N2)
 
-The model has two nonlinear terms: temperature-dependent conductivity $k(T)$ of grey cast iron and surface radiation $\varepsilon\sigma(T^4-T_\infty^4)$. Both enter the residual, the Newton tangent and the adjoint. The table compares the design optimized with the full nonlinear model against the design optimized with both terms switched off (constant $k$, no radiation), each re-checked with the nonlinear model.
+The model has two nonlinear terms: temperature-dependent conductivity $k(T)$ of grey cast iron and surface radiation $\varepsilon\sigma(T^4-T_\infty^4)$. Both enter the residual, the Newton tangent and the adjoint. The table compares the design optimized with the full nonlinear model against the same problem optimized with both terms linearized: radiation linearized about $T_{\text{init}}$ and $k$ frozen at $k(T_{\text{init}})$. That linear optimum is then re-evaluated with the full nonlinear physics, which shows what ignoring the nonlinearity would have cost.
 
 <div class="rj-table" data-table="nonlinear"></div>
 
@@ -201,7 +202,7 @@ The design optimized without the nonlinear terms differs in mass by <span class=
 
 - **Fully nonlinear (+5):** section 7; Newton per implicit-Euler step with the exact tangent and the same tangent in the adjoint.
 - **Path / time dependence (+5):** the constraints aggregate the whole braking history and the adjoint is swept backward through it (section 5).
-- **Design under uncertainty (+5):** the braking scenario (initial speed, brake bias) is sampled and the constraints are imposed robustly over the samples, with adjoint gradients for each sample.
+- **Design under uncertainty (+5):** three sampled scenarios (nominal, +20 km/h initial speed, +0.05 front brake bias). The robust design satisfies both temperature constraints in every scenario (six constraints, each with its own exact adjoint gradient), i.e. the worst case over the samples.
 
 <div class="rj-table" data-table="robust"></div>
 

@@ -5,7 +5,7 @@
 //   <div class="rj-table" data-table="results"></div>                        table (TABLES below)
 //   <div class="rj-plot" data-plot="taylor"></div>                           SVG plot (PLOTS below)
 // Anything missing from results.json shows as "pending" instead of breaking the page.
-import { loadResults, fmt, get, param, constraintRows, DESIGN_LABEL } from "./data.js";
+import { loadResults, fmt, get, param, constraintRows, prettyName, DESIGN_LABEL } from "./data.js";
 
 const PENDING = '<span class="rj-pending" title="not in results.json yet">pending</span>';
 
@@ -43,7 +43,7 @@ function con(r, k, name) { return (r.designs?.[k]?.constraints || []).find((c) =
 function normalize(r) {
   const S = r.sensitivities || {};
   if (!S.taylor && S.taylor_plot) S.taylor = S.taylor_plot;
-  if (!S.cost && S.cost_view) S.cost = S.cost_view;
+  if (S.cost_view) S.cost = S.cost_view; // compact view: {n_vars, forward_s, adjoint_s, fd_s, speedup}
   for (const st of r.optimization?.starts || []) {
     if (Array.isArray(st.history)) {
       const h = {};
@@ -166,13 +166,20 @@ const TABLES = {
     const s = r.optimization?.starts;
     if (!Array.isArray(s) || !s.length) return null;
     return table(["Start", "Iterations", "Final mass (kg)", "Converged"],
-      s.map((t) => [t.name, t.iterations ?? (t.history?.iter ? t.history.iter.length - 1 : ""), fmt(t.final_mass_kg, 3), passMark(t.converged)]));
+      s.map((t) => [t.name, t.iterations ?? (t.history?.iter ? t.history.iter.length - 1 : ""), fmt(t.final_mass_kg, 3),
+        t.converged === undefined ? "" : t.converged ? '<span class="rv-pass">✓ yes</span>' : `✗ no${t.message ? ` (${t.message})` : ""}`]));
   },
   multipliers(r) {
     const a = r.optimization?.active;
     if (!Array.isArray(a) || !a.length) return null;
-    return table(["Active constraint", "Multiplier", "What it means"],
-      a.map((t) => [t.constraint, `${cell(t.multiplier)} ${t.unit || ""}`, t.meaning || ""]));
+    const rows = a.map((t) => [prettyName(t.constraint), `${cell(t.multiplier)} ${t.unit || ""}`, t.meaning || ""]);
+    const b = r.optimization?.active_bounds;
+    if (b && (b.lower?.length || b.upper?.length)) {
+      const lst = (v) => v.join(", ");
+      if (b.lower?.length) rows.push(["Lower thickness bounds", `${b.lower.length} active`, `at the minimum: ${lst(b.lower)}`]);
+      if (b.upper?.length) rows.push(["Upper thickness bounds", `${b.upper.length} active`, `at the maximum: ${lst(b.upper)}`]);
+    }
+    return table(["Active constraint", "Multiplier", "What it means"], rows);
   },
   n2(r) { return anyTable(r.optimization?.n2_comparison); },
   robust(r) { return anyTable(r.optimization?.robust); },
@@ -223,12 +230,15 @@ function plot({ series, xlog = false, ylog = false, xlabel = "", ylabel = "", hl
     svg += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${c}" stroke-width="2" ${s.dash ? 'stroke-dasharray="5 4"' : ""}/>`;
     if (s.markers !== false) for (const [a, b] of pts) svg += `<circle cx="${a}" cy="${b}" r="2.6" fill="${c}"/>`;
   });
-  let lx = L + 8;
+  let lx = L + 8, ly = T + 12;
   series.forEach((s, k) => {
     if (!s.label) return;
     const c = s.color || COLORS[k % COLORS.length];
-    svg += `<line x1="${lx}" x2="${lx + 16}" y1="${T + 12}" y2="${T + 12}" stroke="${c}" stroke-width="2" ${s.dash ? 'stroke-dasharray="4 3"' : ""}/><text x="${lx + 20}" y="${T + 16}">${s.label}</text>`;
-    lx += 30 + 6.2 * s.label.length;
+    const wlab = 30 + 6.2 * s.label.length;
+    if (lx + wlab > L + pw && lx > L + 8) { lx = L + 8; ly += 15; } // wrap the legend
+    svg += `<rect x="${lx - 3}" y="${ly - 9}" width="${wlab - 4}" height="14" class="legbg"/>`;
+    svg += `<line x1="${lx}" x2="${lx + 16}" y1="${ly}" y2="${ly}" stroke="${c}" stroke-width="2" ${s.dash ? 'stroke-dasharray="4 3"' : ""}/><text x="${lx + 20}" y="${ly + 4}">${s.label}</text>`;
+    lx += wlab;
   });
   svg += `<text x="${L + pw / 2}" y="${H - 6}" text-anchor="middle" class="axis">${xlabel}</text>`;
   svg += `<text transform="translate(14 ${T + ph / 2}) rotate(-90)" text-anchor="middle" class="axis">${ylabel}</text></svg>`;
@@ -248,7 +258,7 @@ const PLOTS = {
     const keys = Object.keys(t).filter((k) => k !== "eps" && Array.isArray(t[k]));
     const names = { err_fd: "|f(x+εp) − f(x)|  (should fall as ε)", err_adjoint: "|f(x+εp) − f(x) − ε ∇fᵀp|  (should fall as ε²)" };
     return plot({ xlog: true, ylog: true, xlabel: "step size ε", ylabel: "Taylor remainder",
-      series: [...keys.map((k) => ({ x: t.eps, y: t[k], label: names[k] || k })), slopeRef(t.eps, t[keys[keys.length - 1]], 2, "slope 2")].filter(Boolean) });
+      series: [...keys.map((k) => ({ x: t.eps, y: t[k], label: names[k] || prettyName(k) })), slopeRef(t.eps, t[keys[keys.length - 1]], 2, "slope 2")].filter(Boolean) });
   },
   history(r) {
     const s = r.optimization?.starts;
