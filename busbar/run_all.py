@@ -1,5 +1,5 @@
-"""One command regenerates busbar/site/assets/results.json, the figures and every number on the
-busbar site:
+"""One command regenerates docs/assets/results.json, the figures and every number on the
+site (GitHub Pages serves docs/):
 
     python -m busbar.run_all            # full run (~1 h on a laptop)
     python -m busbar.run_all --quick    # smoke run
@@ -20,15 +20,16 @@ import time
 
 import numpy as np
 
-from optim.gradcheck import cost_comparison, fd_table, taylor_test
-from optim.optimize import run_slsqp
+from .gradcheck import cost_comparison, fd_table, taylor_test
+from .optimize import run_slsqp
 from . import api
 from .ladder import run_ladder
 from .params import Params, initial_design, station_x, split_design, N_STATIONS, PHI_SCALE
 from .problem import BusbarProblem, BusbarSolver, constraint_spec
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ASSETS = os.path.join(HERE, "site", "assets")
+ROOT = os.path.dirname(HERE)
+ASSETS = os.path.join(ROOT, "docs", "assets")
 C0 = 273.15
 TOL = 1e-4      # pass/fail tolerance (relative), the optimizer's feasibility tolerance
 

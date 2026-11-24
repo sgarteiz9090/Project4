@@ -1,5 +1,5 @@
-title: "Race-car brake disc: PDE-constrained design optimization"
-description: "Minimum-mass vented brake rotor under transient temperature limits"
+title: "EV battery busbar: electro-thermal PDE-constrained design optimization"
+description: "Minimum-mass copper busbar under a current pulse, with two-way coupled Joule heating"
 markdown: kramdown
 kramdown:
   input: GFM

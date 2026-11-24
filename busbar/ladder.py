@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import brentq
 
-from brakeopt.fem import HexGeometry, QuadGeometry
+from .fem import HexGeometry, QuadGeometry
 from .mesh import build_mesh
 from .model import BusbarModel, Schedule, EXPOSED
 from .params import Params, initial_design, PHI_SCALE, SIGMA_SB
@@ -326,7 +326,7 @@ def v11_tangent():
 def v12_faces():
     p = Params()
     mesh = build_mesh(initial_design(p), p)
-    from brakeopt.fem import HEX_FACES
+    from .fem import HEX_FACES
     cnt = {}
     for e in mesh.hexes:
         for loc in HEX_FACES.values():

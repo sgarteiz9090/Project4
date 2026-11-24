@@ -11,7 +11,7 @@ from busbar.params import Params, initial_design
 def test_mesh_volume_and_faces():
     p = Params()
     m = build_mesh(initial_design(p), p)
-    from brakeopt.fem import HexGeometry
+    from busbar.fem import HexGeometry
     vol = np.sum(HexGeometry(m.X, m.hexes).wdetJ) * 2
     assert vol == pytest.approx(p.L * p.w0 * p.t0, rel=1e-12)
     assert ladder.v12_faces()["pass"]
@@ -35,7 +35,7 @@ def test_full_ladder():
 
 @pytest.mark.slow
 def test_adjoint_vs_fd():
-    from optim.gradcheck import fd_table
+    from busbar.gradcheck import fd_table
     from busbar.problem import BusbarProblem, BusbarSolver
     pr = BusbarProblem(BusbarSolver(True))
     rows = fd_table(pr, np.ones(24), [0, 13])
@@ -44,7 +44,7 @@ def test_adjoint_vs_fd():
 
 def test_busbar_site_keys_and_results():
     import json, pathlib, re
-    site = pathlib.Path(__file__).resolve().parents[1] / "busbar" / "site"
+    site = pathlib.Path(__file__).resolve().parents[1] / "docs"
     md = (site / "index.md").read_text()
     js = (site / "assets" / "js" / "report.js").read_text()
     for kind in ("table", "plot", "calc"):

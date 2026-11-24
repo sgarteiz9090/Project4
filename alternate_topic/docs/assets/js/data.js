@@ -1,5 +1,5 @@
 // Loads the single results file that every number on the site comes from.
-// busbar/site/assets/results.json is written by `python -m busbar.run_all`.
+// docs/assets/results.json is written by `python scripts/run_all.py`.
 // If it does not exist yet (or the page is opened with ?mock) we fall back to
 // docs/assets/mock_results.json, and the page shows a red MOCK banner.
 let cache = null;
@@ -56,12 +56,13 @@ export function constraintRows(data, design) {
       pass: c.pass,
     };
   });
-  const wMin = param(data, "w_min"), tMin = param(data, "t_min");
+  if (rows.some((r) => /thick/i.test(r.key))) return rows; // solver already reports the bounds
+  const tvMin = param(data, "tv_min"), tcMin = param(data, "tc_min");
   const dd = design.d || {};
-  if (wMin !== undefined && dd.width_mm)
-    rows.push(boundRow("Minimum width (bound)", Math.min(...dd.width_mm), wMin * 1e3));
-  if (tMin !== undefined && dd.thickness_mm)
-    rows.push(boundRow("Minimum thickness (bound)", Math.min(...dd.thickness_mm), tMin * 1e3));
+  if (tvMin !== undefined && dd.vane_thickness_mm)
+    rows.push(boundRow("Minimum vane thickness", Math.min(...dd.vane_thickness_mm), tvMin * 1e3));
+  if (tcMin !== undefined && dd.cheek_thickness_mm)
+    rows.push(boundRow("Minimum cheek thickness", Math.min(...dd.cheek_thickness_mm), tcMin * 1e3));
   return rows;
 }
 
@@ -71,9 +72,8 @@ function boundRow(name, v, lim) {
 
 export function prettyName(n) {
   const map = {
-    peak_bar_T: "Peak busbar temperature",
-    peak_joint_T: "Peak joint (cell-terminal) temperature",
-    resistance: "Resistance at the continuous rating",
+    peak_face_T: "Peak friction-face temperature",
+    peak_hub_T: "Peak hub / bell-mount temperature",
   };
   return map[n] || String(n).replace(/_/g, " ");
 }
@@ -82,5 +82,4 @@ export const DESIGN_LABEL = {
   initial: "Initial",
   optimized: "Optimized",
   optimized_linear: "Optimized without nonlinearity",
-  optimized_robust: "Robust optimum",
 };

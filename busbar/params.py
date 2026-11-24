@@ -12,8 +12,9 @@ Sources (cited in the report):
   (Holman, Heat Transfer, 10th ed., Table 7-2).
 - Powder-coated / epoxy-insulated busbar emissivity ~0.85-0.9 (Incropera Table A.11, paints).
 - Temperature limits: 105 C insulation class of the busbar sleeve / heat-shrink (UL 224, 105 C
-  rating); 60 C at the joint, because the joint face is bolted to the battery-cell terminal and
-  Li-ion cells must stay below ~60 C (typical cell data sheet maximum operating temperature).
+  rating); 70 C at the joint face, which is bolted to the 40 C module terminal: with the ~10 K drop
+  of the terminal path this keeps the cell tabs within the 55-60 C maximum operating temperature of
+  typical Li-ion cell data sheets. Resistance budget 52 micro-ohm (about 8 W per busbar at 400 A).
 """
 from __future__ import annotations
 

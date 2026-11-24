@@ -1,0 +1,9 @@
+title: "Race-car brake disc: PDE-constrained design optimization"
+description: "Minimum-mass vented brake rotor under transient temperature limits"
+markdown: kramdown
+kramdown:
+  input: GFM
+  math_engine: mathjax
+  hard_wrap: false
+exclude:
+  - README.md

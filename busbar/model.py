@@ -26,7 +26,7 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.sparse as sp
 
-from brakeopt.fem import HexGeometry, QuadGeometry
+from .fem import HexGeometry, QuadGeometry
 from .mesh import Mesh
 from .params import Params, SIGMA_SB, PHI_SCALE
 
