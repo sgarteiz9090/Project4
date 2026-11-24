@@ -110,9 +110,22 @@ def optimization(quick=False):
         "linear_opt_checked_with_full_physics": rl["summary_full_physics"]["constraints"],
         "d_nonlinear_mm": (1e3 * prob.d_of(x_nl)).tolist(),
         "d_linear_mm": (1e3 * lin.d_of(x_lin)).tolist()}
+    out["n2_comparison"]["attribution"] = n2_attribution(lin.d_of(x_lin))
     if not quick:
         out["robust"] = robust_block(x_nl, prob)
     return out, prob.d_of(x_nl), lin.d_of(x_lin)
+
+
+def n2_attribution(d):
+    """Peak temperatures of one design with each nonlinear term switched off in turn."""
+    rows = []
+    for rad, kT, label in ((True, True, "full physics"), (False, True, "radiation linearized"),
+                           (True, False, "k frozen at k(T_init)"), (False, False, "both linearized")):
+        pr = make_problem(rad, kT)
+        e = pr.evaluate(np.asarray(d) / pr.d0, need_grad=False)
+        rows.append({"model": label, "radiation": rad, "kT": kT,
+                     "peak_face_C": float(e["Tmax"][0]), "peak_hub_C": float(e["Tmax"][1])})
+    return rows
 
 
 def robust_block(x_nominal_opt, prob_nominal):
@@ -138,12 +151,55 @@ def run(quick=False, fig_dir=None):
     sens["linear"] = sensitivities(make_problem(False, False), x0, check_vars[:4], "linearized")
     sens["cost"] = cost_comparison(p_nl, x0)
     opt, d_nl, d_lin = optimization(quick)
+    website_views(sens, opt)
     blocks = {"sensitivities": sens, "optimization": opt,
               "designs_optimized_d": d_nl.tolist(), "designs_optimized_linear_d": d_lin.tolist(),
               "wall_s": time.perf_counter() - t0}
     if fig_dir:
         make_figures(blocks, fig_dir)
+        blocks["sensitivities"]["figures"] = {"taylor": "assets/taylor_test.png",
+                                              "history": "assets/opt_history.png"}
     return blocks
+
+
+MEANING = {
+    "peak_face_T": "kg of rotor mass saved per K the friction-face temperature limit is relaxed: "
+                   "the cheeks are sized by how much heat they can soak up during each stop",
+    "peak_hub_T": "kg saved per K the hub/bell temperature limit is relaxed: "
+                  "governs how much heat may reach the bearings through the mounting",
+}
+
+
+def website_views(sens, opt):
+    """Flat views in the shapes the report page renders (WS4 section of ainote.md)."""
+    gc = []
+    for key in ("nonlinear", "linear"):
+        for r in sens[key]["fd_table"]:
+            gc.append({"function": r["fun"], "variable": r["var_label"], "model": sens[key]["label"],
+                       "adjoint": r["adjoint"], "fd": r["fd"], "rel_error": r["rel_err"],
+                       "err_vs_grad_norm": r["err_vs_grad_norm"]})
+    sens["gradient_check"] = gc
+    tay = sens["nonlinear"]["taylor"]
+    err = np.array(tay["central_err"])
+    sens["taylor_plot"] = {"eps": tay["eps"],
+                           **{nm: err[:, k].tolist()
+                              for k, nm in enumerate(sens["nonlinear"]["functionals"]) if k > 0}}
+    c = sens["cost"]
+    sens["cost_view"] = {"n_vars": c["n_var"], "forward_s": c["t_forward_s"],
+                         "adjoint_s": c["t_adjoint_only_s"], "fd_s": c["t_fd_central_est_s"],
+                         "speedup": c["speedup_vs_central"]}
+    for s in opt["starts"] + [opt["linear"]] + ([opt["robust"]] if "robust" in opt else []):
+        s["name"] = s["label"]
+        s["iterations"] = s["nit"]
+        s["final_mass_kg"] = s["history"][-1]["mass_kg"]
+        s["converged"] = s["success"]
+    best = next(s for s in opt["starts"] if s["label"] == opt["best_start"])
+    k = best["kkt"]
+    opt["active"] = [{"constraint": nm, "multiplier": k["kg_per_K_relaxation"][nm], "unit": "kg/K",
+                      "multiplier_scaled": mu, "meaning": MEANING.get(nm, "")}
+                     for nm, mu in k["constraint_multipliers"].items()]
+    opt["active_bounds"] = {"lower": [var_label(i) for i in k["lower_bounds_active"]],
+                            "upper": [var_label(i) for i in k["upper_bounds_active"]]}
 
 
 def make_figures(blocks, fig_dir):
