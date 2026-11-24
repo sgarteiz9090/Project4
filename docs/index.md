@@ -178,7 +178,7 @@ The sweep runs **backward in time** from the end of the recovery to the steady s
 
 ## 6. Optimization
 
-**Algorithm and scaling.** SciPy SLSQP (`ftol` = $10^{-7}$). Variables $\mathbf x = \mathbf d/\mathbf d_0$, objective $f = m/m_0$, constraints $g_k = \mathrm{KS}_k - 1$ and $g_R = R/R_{\max} - 1$, all of order one. Three starts (the uniform bar, all upper bounds, the midpoint of the box) test whether the optimum depends on the start.
+**Algorithm and scaling.** SciPy SLSQP (`ftol` = $10^{-7}$). Variables $\mathbf x = \mathbf d/\mathbf d_0$, objective $f = m/m_0$, constraints $$g_k = \mathrm{KS}_k - 1$$ and $$g_R = R/R_{\max} - 1$$, all of order one. Three starts (the uniform bar, all upper bounds, the midpoint of the box) test whether the optimum depends on the start.
 
 <div class="rj-table" data-table="starts"></div>
 
