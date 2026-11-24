@@ -49,8 +49,12 @@ class ThermalModel:
         # frictional flux shape: q = P_sector * r / C on projected area of the friction faces
         fg = self.fgeo["friction"]
         rq = np.sqrt(fg.xg[..., 0] ** 2 + fg.xg[..., 1] ** 2)
-        C = np.sum(fg.wdA_z * rq)
-        self.Fq = self.S_face["friction"] @ np.einsum("fg,ga->fa", fg.wdA_z * rq / C, fg.N).ravel()
+        if len(mesh.faces["friction"]):
+            C = np.sum(fg.wdA_z * rq)
+            self.Fq = self.S_face["friction"] @ np.einsum("fg,ga->fa", fg.wdA_z * rq / C, fg.N).ravel()
+        else:
+            self.Fq = np.zeros(self.nn)
+        self.extra_load = None   # optional callable n -> nodal load vector (verification: MMS sources)
         self.sector_share = 1.0 / (2 * p.n_vanes)     # quarter sector covers 1/(2 n_vanes) of a face
         self._M = None
 
@@ -106,18 +110,27 @@ class ThermalModel:
         re = np.einsum("egai,Zegi->Zea", g.dNdx, qg)
         re = re + np.einsum("eab,Zeb->Zea", self.Me, Te - To2[:, hexes]) / dt[:, None, None]
         R = (self.S_hex @ re.reshape(B, -1).T).T
-        h = self.face_coeffs(n)
         for name, fg in self.fgeo.items():
+            if name.startswith("sym"):
+                continue
             quads = self.mesh.faces[name]
             Tq = np.einsum("ga,Zfa->Zfg", fg.N, T2[:, quads])
-            val = h[name][:, None, None] * (Tq - self.sink(name))
-            if name in RAD_SETS:
-                val = val + self.rad_flux(Tq)[0]
+            val = self.bc_flux(name, Tq, n)
             rf = np.einsum("Zfg,fg,ga->Zfa", val, fg.wdA, fg.N)
             R = R + (self.S_face[name] @ rf.reshape(B, -1).T).T
         P = self.sched.P_face[n] * self.sector_share
         R = R - P[:, None] * self.Fq[None, :]
+        if self.extra_load is not None:
+            R = R - np.stack([self.extra_load(int(m)) for m in n])
         return R[0] if single else R
+
+    def bc_flux(self, name, Tq, n):
+        """Outward boundary heat flux (W/m^2) of face set `name` at temperatures Tq (B, f, g)."""
+        h = self.face_coeffs(n)[name]
+        val = h.reshape((-1,) + (1,) * (np.ndim(Tq) - 1)) * (Tq - self.sink(name))
+        if name in RAD_SETS:
+            val = val + self.rad_flux(Tq)[0]
+        return val
 
     # ------------------------------------------------------------------ tangent
     def jacobian(self, T, dt, n):
@@ -133,6 +146,8 @@ class ThermalModel:
         rows, cols, vals = [self._hex_rows], [self._hex_cols], [np.real(Ke).ravel()]
         h = self.face_coeffs(n)
         for name, fg in self.fgeo.items():
+            if name.startswith("sym"):
+                continue
             quads = self.mesh.faces[name]
             Tq = T[quads] @ fg.N.T
             c = h[name][0] + 0.0 * Tq
@@ -156,6 +171,8 @@ class ThermalModel:
         out = {"in": float(np.real(self.sched.P_face[n] * self.sector_share * self.Fq.sum()))}
         h = self.face_coeffs(n)
         for name, fg in self.fgeo.items():
+            if name.startswith("sym"):
+                continue
             Tq = T[self.mesh.faces[name]] @ fg.N.T
             out["conv_" + name] = float(np.sum(h[name][0] * (Tq - self.sink(name)) * fg.wdA))
             if name in RAD_SETS:

@@ -119,4 +119,5 @@ class QuadGeometry:
         dA = np.sqrt(np.sum(n * n, axis=-1))            # complex-safe norm
         self.wdA = dA * wts[None, :]                    # (f, g)
         self.wdA_z = n[..., 2] * wts[None, :]           # projected area on the z = const plane (signed)
+        self.normal = n / dA[..., None]                 # unit outward normal (f, g, 3)
         self.xg = np.einsum("ga,fai->fgi", self.N, Xf)  # (f, g, 3)

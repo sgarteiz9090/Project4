@@ -169,11 +169,43 @@ every brick corner, tenth of a second by tenth of a second, through three hard s
 step the equations are nonlinear (iron conducts worse when hot, and a hot disc glows away heat as
 T^4), so Newton's method guesses, measures how wrong the guess is, and corrects, usually in 3-4 tries.
 
+**Verification ladder results (default mesh; all PASS; `python -m verification.ladder`)**
+| ID | Test | Result |
+|----|------|--------|
+| V1 | Steady slab, convection both ends, exact linear profile | max error 1e-16 of dT |
+| V2 | Same slab, arbitrary 3D rotation + translation | identical to 3e-16 |
+| V3a/b | Nonlinear k(T) slab vs Kirchhoff exact solution | flux rel. error 4e-7; L2 order 2.00 |
+| V4a/b | Radiation-cooled plate (T^4) vs exact T(t) | rel. error 2e-6 (Richardson); order in dt 0.99 |
+| V5 | MMS steady 3D on the curved sector mesh, k(T)+radiation+convection | L2 order 1.98 |
+| V6 | MMS transient, all nonlinear terms | order in dt 1.00 |
+| V7a/b | Heat input = kinetic-energy budget; stored + lost = input | exact; imbalance 2e-16 |
+| V8 | Newton on the braking problem | quadratic (order ~2.2): 2e2, 6e-1, 2e-6, 3e-13 |
+| V9 | Mesh convergence of peak face T (x1, x2, x3 meshes) | (slow, running) |
+| V10 | Every exterior face belongs to exactly one boundary set | 184 = 184 |
+
+Bug caught by the ladder (for the AI-use statement): in V3 the agent's first version measured the
+heat flux leaving the cold end with the wrong sign, so V3a failed (-1.29e6 vs +1.29e6 W/m^2); the
+check against the exact Kirchhoff flux caught it. Separately, the first batched residual reused the
+same einsum index letter for the time-step batch and the element node, which crashed on first run.
+
+**Plain-language note: verification (for GUIDE.md)**
+Before trusting the solver we fed it problems whose answers are known exactly: a plain wall with
+heat flowing through it, the same wall turned in a random direction, a wall whose conductivity
+changes with temperature, a plate cooling only by glowing, and "manufactured" answers where we pick
+the temperature field first and work out what heating would produce it. The solver reproduces them,
+and its error shrinks at the textbook rate as the bricks get smaller (4x less error per halving) and
+as the time step gets smaller (2x less per halving). Energy is conserved exactly: all the braking
+energy put in is accounted for as heat stored in the iron plus heat lost to air and radiation.
+
+**Outputs**: `scripts/run_all.py` writes `docs/assets/results.json` (`verification`, `convergence`,
+`designs.initial`, `figures`) and `docs/assets/fig_convergence.png`, `fig_newton.png`, `fig_history.png`.
+Mesh JSON also includes `faces` (boundary sets, incl. `sym_*` planes) to help the viewer draw surfaces.
+
 **In progress**
-- Verification ladder V1-V7 + mesh/time convergence plots.
+- V9 mesh study; integration of branches.
 
 **Next**
-- `scripts/run_all.py` writing the initial design + verification to `docs/assets/results.json`.
+- Re-run `scripts/run_all.py` full once WS2+3 optimization is final.
 
 **Blocked on**
 - nothing

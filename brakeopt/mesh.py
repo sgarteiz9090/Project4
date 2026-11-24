@@ -90,6 +90,10 @@ def _topology(p: Params):
                               local_faces((ek == nzv) & (ej >= ntv), "zeta-")]),
         "rim": local_faces(ei == nr - 1, "xi+"),
         "hub": local_faces(ei == 0, "xi-"),
+        # symmetry planes (adiabatic; used for display and verification only)
+        "sym_theta0": local_faces(ej == 0, "eta-"),
+        "sym_thetamax": local_faces((ej == nt - 1) & (ek >= nzv), "eta+"),
+        "sym_z0": local_faces((ek == 0) & (ej < ntv), "zeta-"),
     }
     return hexes, faces, node_ijk, elem_ijk
 
