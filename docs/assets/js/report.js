@@ -182,7 +182,25 @@ const TABLES = {
     return table(["Active constraint", "Multiplier", "What it means"], rows);
   },
   n2(r) { return anyTable(r.optimization?.n2_comparison); },
-  robust(r) { return anyTable(r.optimization?.robust); },
+  robust(r) {
+    const R = r.optimization?.robust;
+    if (!R) return null;
+    if (!R.summary || !R.nominal_optimum_under_scenarios) return anyTable(R);
+    const rob = R.summary, nom = R.nominal_optimum_under_scenarios;
+    const sc = (R.scenarios || []).map((x) => [x.label, fmt(x.v_high_kmh, 0), fmt(x.front_bias, 2)]);
+    const byName = (list) => Object.fromEntries((list || []).map((c) => [c.name, c]));
+    const nb = byName(nom.constraints), rb = byName(rob.constraints);
+    const val = (c) => (c ? `${fmt(c.true_max_C ?? c.ks_value_C, 1)} °C ${passMark(c.pass)}` : "");
+    const rows = [["Rotor mass", `${fmt(nom.mass_kg, 2)} kg`, `${fmt(rob.mass_kg, 2)} kg`, ""]];
+    for (const name of Object.keys(nb)) {
+      const [con, scen] = name.split(" | ");
+      rows.push([`${prettyName(con)}, ${scen || ""}`, val(nb[name]), val(rb[name]), `≤ ${fmt(nb[name].limit_C, 0)} °C`]);
+    }
+    const it = R.iterations ?? R.nit;
+    return table(["Scenario", "Initial speed (km/h)", "Front brake bias"], sc) +
+      table(["Quantity (true peak)", "Nominal optimum", "Robust optimum", "Limit"], rows) +
+      `<p>Robust design: ${it} SLSQP iterations, ${R.converged ? "converged" : "not converged"}; it costs <b>${fmt(R.mass_penalty_kg, 2)} kg</b> more than the nominal optimum.</p>`;
+  },
   params(r) {
     if (!r.params) return null;
     const rows = Object.entries(r.params).map(([k, v]) => [`<code>${k}</code>`, typeof v === "object" && v ? cell(v.value) : cell(v), typeof v === "object" && v ? v.unit || "" : ""]);
