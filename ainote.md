@@ -13,7 +13,7 @@ Deadline: GitHub Pages site final on **Nov 25, 11:59 PM America/Phoenix** (assum
 | WS | Scope | Branch (write yours here) | Owner thread |
 |----|-------|---------------------------|--------------|
 | WS1 | Repo scaffold, mesh, transient nonlinear solver, verification ladder, integration/merging | `claude/project-thread-3ve605` | Build brake disc heat solver |
-| WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `gradients-optimizer` | adjoint + optimizer thread |
+| WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `claude/project-thread-1qs3ox` | adjoint + optimizer thread |
 | WS4 | Website: GitHub Pages report (10 sections), three.js viewer (8 requirements) | _fill in_ | |
 | WS5 | GUIDE.md beginner guide (each WS also adds notes to its own GUIDE section) | `claude/project-thread-c068hs` | guide thread |
 
@@ -190,8 +190,33 @@ Verification ladder plan (WS1):
 | V7 | Invariance: rotate/translate mesh, mesh-independence of peak T | identical results |
 | V8 | (WS2+3) adjoint vs central FD, every constraint, both variable types; Taylor test | |
 
-## WS2+3: Adjoint gradients + optimization (branch `gradients-optimizer`)
+## WS2+3: Adjoint gradients + optimization (branch `claude/project-thread-1qs3ox`)
 _section owned by the adjoint + optimizer thread_
+
+Code lives in `optim/` (does not touch `brakeopt/`):
+- `optim/adjoint.py`: generic discrete adjoint, backward sweep over implicit-Euler steps, all functionals share one LU of A_n^T per step; uses `vjp_d_all` if present, else `vjp_d`, else complex step on `residual`.
+- `optim/functionals.py`: KS over (node set x all time steps) of a = T_C / limit_C; rho_dimensionless = rho_per_K * limit_C (rho_per_K defaults to `p.ks_rho`). True maxima reported alongside.
+- `optim/design_problem.py`: scaled problem x = d/d0, f = m/m0, g_k = KS_k - 1 <= 0, with caching.
+- `optim/gradcheck.py`: FD table, Taylor test, adjoint-vs-FD cost. `optim/optimize.py`: SLSQP + history + KKT read-out (NNLS multipliers on the active set, plus SLSQP's own).
+- `optim/brake_adapter.py`: binds `brakeopt.api` (radiation/kT flags fixed per instance).
+- `optim/toy_problem.py`: 1D nonlinear transient stand-in with the same API, used only by `tests/test_adjoint_toy.py`.
+
+**Done**
+- Adjoint derivation + implementation; verified on the 1D stand-in (nonlinear k(T) + radiation): adjoint vs central FD agree to ~1e-10 relative, Taylor test falls as eps^2 over 5 decades.
+- Bug the check caught (for the AI-use statement): the first Newton stopping test (residual relative to ||rho c T||) stopped after 1 iteration, so FD and adjoint disagreed at 4e-7 with a *flat* Taylor curve. Fix: stop on the Newton update, tol 1e-13. **WS1: please make sure `newton_tol` is tight enough for gradient checks (converge to ~1e-12 relative in the update), otherwise FD checks will flatten out.**
+
+**In progress**
+- Waiting for `brakeopt/api.py` to be real; then: gradient-check table (both variable types, both constraints, rad on/off), Taylor plot, cost comparison.
+
+**Next**
+- SLSQP from >= 2 starts (baseline, all-max), history per iteration, active set + multipliers in kg per % limit relaxation; linear (radiation=False, kT=False) optimum for the N2 comparison; optional uncertainty bonus (sampled initial speed / front bias, KS over scenarios).
+- `optim/run_ws23.py` will return the `"sensitivities"`, `"optimization"`, `designs.optimized`, `designs.optimized_linear` blocks for `scripts/run_all.py` to merge in.
+
+**Blocked on**
+- `brakeopt/api.py` implementation (WS1).
+
+**Plain-language note (for GUIDE.md)**
+- The *adjoint* answers "if I make vane 5 a little thicker, how much hotter or cooler does the hottest point on the disc get during the whole braking sequence?" for all 24 dimensions at once. It does that by running the heat simulation once forward in time, then running one extra, cheaper "backward" calculation from the last stop to the first, which tracks how much each moment's temperatures influence the final peak. Checking against brute force (nudging each dimension and re-running the simulation) proves the numbers are right.
 
 ## WS4: Website
 _not started_
