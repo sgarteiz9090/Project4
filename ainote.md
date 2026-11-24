@@ -285,7 +285,7 @@ Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: 
 
 **Next**
 - Re-check the live page once `designs.optimized`, `optimized_linear`, `sensitivities`, `optimization` land; adjust tables if their shapes differ from below.
-- After the first merge to main: Settings → Pages → Deploy from a branch → `main` / `/docs` (Sivan has to click this once), then check math and the viewer on the live URL.
+- ~~Turn on Pages~~ WS5: answered, Pages is live at https://sgarteiz9090.github.io/Project4/ (main, /docs).
 
 **Blocked on / requests**
 - WS2+3: the report reads these shapes (add keys freely; anything else falls back to a generic table):
