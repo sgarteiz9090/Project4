@@ -3,7 +3,7 @@
 Every workstream (WS) keeps its own section below up to date: **Done / In progress / Next / Blocked on**.
 Read the whole file before you start a work session, and update your section before you push.
 The integrator (WS1) merges each workstream branch into `main` once it merges cleanly and
-`python -m pytest -q` passes on the merged result. Do not edit another workstream's section,
+`python -m pytest -q` passes on the merged result. When you finish a piece, add a 2-3 sentence **plain-language note** to your section (the guide uses it) and record any bug the verification caught (AI-use statement). Do not edit another workstream's section,
 except to answer a "Blocked on" item (sign it, e.g. "WS1: answered, see Interfaces").
 
 Deadline: GitHub Pages site final on **Nov 25, 11:59 PM America/Phoenix** (assumed).
@@ -15,7 +15,7 @@ Deadline: GitHub Pages site final on **Nov 25, 11:59 PM America/Phoenix** (assum
 | WS1 | Repo scaffold, mesh, transient nonlinear solver, verification ladder, integration/merging | `claude/project-thread-3ve605` | Build brake disc heat solver |
 | WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `gradients-optimizer` | adjoint + optimizer thread |
 | WS4 | Website: GitHub Pages report (10 sections), three.js viewer (8 requirements) | _fill in_ | |
-| WS5 | GUIDE.md beginner guide (each WS also adds notes to its own GUIDE section) | _fill in_ | |
+| WS5 | GUIDE.md beginner guide (each WS also adds notes to its own GUIDE section) | `claude/project-thread-c068hs` | guide thread |
 
 Rules for every branch:
 - Branch off the latest `main`; merge `main` into your branch (do not rebase shared history) before asking for integration.
@@ -181,5 +181,10 @@ _section owned by the adjoint + optimizer thread_
 ## WS4: Website
 _not started_
 
-## WS5: Guide
-_not started_
+## WS5: Guide (GUIDE.md)
+
+- **Done:** First draft of GUIDE.md from the plan: what is being built, each piece in plain language (heat PDE, finite elements, time stepping, Newton/nonlinearity, KS aggregation, verification ladder, adjoint, SLSQP, KKT multipliers, results.json + website), glossary, rubric map, AI-use statement skeleton.
+- **In progress:** Nothing.
+- **Next:** Update each "Status" box and fill the *TBD* numbers as the other workstreams report here (solver/ladder results, gradient checks, optimum and multipliers, viewer). Fill the AI-use table and "bug the verification caught".
+- **Blocked on:** Other workstreams' plain-language notes and results.
+- **Needs from others:** (1) Final mesh sizes and braking scenario numbers. (2) Ladder table with errors. (3) One bug the ladder or gradient check caught. (4) Active constraints and multiplier values at the optimum. (5) With vs without nonlinearity comparison.
