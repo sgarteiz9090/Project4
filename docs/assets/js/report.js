@@ -48,9 +48,33 @@ const CALC = {
   n_frames: (r) => r.designs?.initial?.temperature?.frames?.length,
   linear_mass_delta_pct: (r) => pct(r.designs?.optimized?.mass_kg, r.designs?.optimized_linear?.mass_kg),
   robust_penalty_g: (r) => (r.optimization?.robust ? 1000 * r.optimization.robust.mass_penalty_kg : undefined),
+  // KS conservatism of the active joint constraint at the optimum, and what it costs in copper
+  ks_gap_joint: (r) => { const c = jointRow(r); return c ? c.ks_or_value - c.true_value : undefined; },
+  ks_gap_cost_g: (r) => { const c = jointRow(r), a = (r.optimization?.active || []).find((t) => t.constraint === "peak_joint_T");
+    return c && a ? 1000 * a.multiplier * (c.ks_or_value - c.true_value) : undefined; },
+  width_bound_g_per_mm: (r) => boundCost(r, "ub", 0, 12, r.params?.w0),
+  width_bound_joint_share_pct: (r) => { const all = boundCost(r, "ub", 0, 12, r.params?.w0), j = [0, 1, 10, 11].reduce((s, i) => s + (boundCost(r, "ub", i, i + 1, r.params?.w0) || 0), 0);
+    return all ? (100 * j) / all : undefined; },
+  robust_vs_initial_g: (r) => (r.designs?.optimized_robust && r.designs?.initial ? 1000 * (r.designs.optimized_robust.mass_kg - r.designs.initial.mass_kg) : undefined),
   joule_W: (r) => r.designs?.initial?.power_W?.joule_bulk,
   joint_W: (r) => r.designs?.initial?.power_W?.joule_joints_total,
 };
+function bestKkt(r) {
+  const o = r.optimization;
+  return (o?.starts || []).find((s) => s.label === o.best_start)?.kkt;
+}
+function jointRow(r) {
+  const o = r.optimization;
+  return (o?.starts || []).find((s) => s.label === o.best_start)?.summary?.constraints?.find((c) => c.name === "peak_joint_T");
+}
+// grams of copper saved per mm of relaxation of the bounds of variables i0..i1-1 (scaled x = d/d0)
+function boundCost(r, side, i0, i1, d0) {
+  const k = bestKkt(r), m0 = r.designs?.initial?.mass_kg;
+  if (!k?.bound_multipliers || !m0 || !d0) return undefined;
+  let s = 0;
+  for (let i = i0; i < i1; i++) s += k.bound_multipliers[`${side}${i}`] || 0;
+  return (1000 * s * m0) / (1000 * d0);
+}
 function pct(a, b) { return a && b !== undefined ? (100 * (a - b)) / a : undefined; }
 function diff(a, b) { return a !== undefined && b !== undefined ? a - b : undefined; }
 function con(r, k, name) { return (r.designs?.[k]?.constraints || []).find((c) => c.name === name); }
@@ -161,8 +185,15 @@ const TABLES = {
   verification(r) {
     const v = r.verification;
     if (!Array.isArray(v) || !v.length) return null;
+    const rows = [...v];
+    const g = r.sensitivities?.gradient_check;
+    if (Array.isArray(g) && g.length) {
+      const worst = Math.max(...g.map((t) => t.err_vs_grad_norm ?? t.rel_error));
+      rows.push({ id: "V13", name: `Gradient check: adjoint vs. central differences, ${g.length} checks (every functional, widths and thicknesses), Taylor test`,
+        ours: worst, exact: 0, rel_error: worst, pass: worst < 1e-6, note: "worst error / gradient norm; full table and Taylor plot in section 5" });
+    }
     return table(["ID", "Test", "Ours", "Exact", "Rel. error", "Status", "Note"],
-      v.map((t) => [t.id, t.name ?? t.test, cell(t.ours ?? t.computed), cell(t.exact), sci(t.rel_error ?? t.error, 1), passMark(t.pass), t.note || ""]));
+      rows.map((t) => [t.id, t.name ?? t.test, cell(t.ours ?? t.computed), cell(t.exact), sci(t.rel_error ?? t.error, 1), passMark(t.pass), t.note || ""]));
   },
   gradient_check(r) {
     const g = r.sensitivities?.gradient_check;
@@ -194,6 +225,10 @@ const TABLES = {
       const lst = (v) => v.join(", ");
       if (b.lower?.length) rows.push(["Lower bounds", `${b.lower.length} active`, `at the minimum: ${lst(b.lower)}`]);
       if (b.upper?.length) rows.push(["Upper bounds", `${b.upper.length} active`, `at the maximum: ${lst(b.upper)}`]);
+      const w0 = r.params?.w0, t0 = r.params?.t0;
+      const wub = boundCost(r, "ub", 0, 12, w0), tlb = boundCost(r, "lb", 12, 24, t0);
+      if (wub !== undefined) rows.push(["Width upper bound (50 mm)", `${fmt(wub, 2)} g/mm`, "copper saved per mm of extra width allowed at every station (sum of the 12 bound multipliers)"]);
+      if (tlb !== undefined && tlb > 0) rows.push(["Thickness lower bound at the two end stations", `${fmt(tlb, 2)} g/mm`, "copper saved per mm the minimum end thickness could be reduced"]);
     }
     return table(["Active constraint", "Multiplier", "What it means"], rows);
   },

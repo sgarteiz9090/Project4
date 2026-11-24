@@ -122,7 +122,7 @@ $$
 
 The volume part of the tangent is derived by hand ($\sigma'(T)$, $k'(T)$ and the Joule term $\sigma\lvert\nabla\phi\rvert^2$ give off-diagonal blocks between $\boldsymbol\psi$ and $\mathbf T$); the boundary part is differentiated by complex step over each face's 8 or 9 local unknowns, which is exact to round-off. Verification V11 checks both.
 
-**Assumptions.** Straight bar of rectangular section (no bends); the contact resistance does not depend on temperature or on clamping force; the terminals are a fixed 40 °C with a lumped conductance; natural convection from a simple correlation (no enclosure flow, no view-factor reduction of radiation); the insulation sleeve is thin enough to ignore its thermal resistance; skin effect is negligible (DC traction current).
+**Assumptions.** Straight bar of rectangular section (no bends); the contact resistance does not depend on temperature or on clamping force; the terminals are a fixed 40 °C with a lumped conductance; natural convection from a simple correlation (no enclosure flow, no view-factor reduction of radiation); the insulation sleeve is thin enough to ignore its thermal resistance; skin effect is negligible (DC traction current). The specific contact resistance $\rho_c$ and the terminal conductance $h_{\text{term}}$ = <span class="rj" data-param="h_term" data-d="0"></span> W/m² K are per unit area, so a wider bar end gets a larger joint with proportionally lower resistance and a larger heat path into the terminal (in a real bolted joint the resistance is set mostly by the clamping force, not the apparent area). $h_{\text{term}}$ is an assumed lumped value, not a measured one. The convection length $L_c$ is held at 50 mm for every design rather than following the width.
 
 <details><summary>All model parameters (from results.json)</summary>
 <div class="rj-table" data-table="params"></div>
@@ -130,7 +130,7 @@ The volume part of the tangent is derived by hand ($\sigma'(T)$, $k'(T)$ and the
 
 ## 4. Verification
 
-Every test is run by `python scripts/run_all.py` and reported straight from `results.json`. V1 to V3 have closed-form answers the element space reproduces exactly; V4 is a closed-form **nonlinear, two-way coupled** benchmark (in a bar of constant section the current density is fixed by charge conservation, so $\sigma(T)$ makes the Joule source linear in $T$ and $T(x)$ is a cosine); V5 and V6 are exact solutions for a body cooled only by natural convection ($\Delta T(t) = (\Delta T_0^{-1/4} + a t/4)^{-4}$) or only by radiation; V7 is a manufactured solution of the full coupled 3D problem with every nonlinear term on a tapered mesh.
+Every test is run by `python scripts/run_all.py` and reported straight from `results.json`. V1 to V3 have closed-form answers the element space reproduces exactly; V4 is a closed-form **nonlinear, two-way coupled** benchmark (in a bar of constant section the current density is fixed by charge conservation, so $\sigma(T)$ makes the Joule source linear in $T$ and $T(x)$ is a cosine); V5 and V6 are exact solutions for a body cooled only by natural convection ($\Delta T(t) = (\Delta T_0^{-1/4} + a t/4)^{-4}$) or only by radiation; V7 is a manufactured solution of the full coupled 3D problem with every nonlinear term on a tapered mesh. V8 checks global energy balance (electrical power in equals heat generated; stored plus lost equals generated over the history), V9 Newton's quadratic convergence, V10 mesh convergence of the optimizer's own model, V11 the Newton tangent, V12 the boundary bookkeeping, and V13 summarizes the gradient check of section 5.
 
 <div class="rj-table" data-table="verification"></div>
 
@@ -159,7 +159,7 @@ $$
 \frac{\mathrm d g}{\mathrm d \mathbf d} = \frac{\partial g}{\partial \mathbf d} + \sum_{n=1}^{N} \boldsymbol\lambda_n^{\mathsf T}\,\frac{\partial \mathbf R_n}{\partial \mathbf d}.
 $$
 
-The sweep runs **backward in time** from the end of the recovery to the steady state, because the temperature at step $n$ influences the peaks through every later step. Each step costs one sparse LU of $\mathbf A_n^{\mathsf T}$ shared by all three constraints. The adjoint multiplier has an electrical and a thermal part, $\boldsymbol\lambda_n = (\boldsymbol\lambda_{\phi,n}, \boldsymbol\lambda_{T,n}, \lambda_{V,n})$: the electrical part is how a change of the potential field (through Joule heating and through $V_{\text{in}}$) feeds the peak temperature. This is implicit differentiation of the coupled nonlinear solve (handout implementation iii). The backward sweep is the brake-disc project's generic `optim/adjoint.py`, reused unchanged on the coupled state.
+The sweep runs **backward in time** from the end of the recovery to the steady state, because the temperature at step $n$ influences the peaks through every later step. Each step costs one sparse LU of $\mathbf A_n^{\mathsf T}$ shared by all three constraints. The adjoint multiplier has an electrical and a thermal part, $\boldsymbol\lambda_n = (\boldsymbol\lambda_{\phi,n}, \boldsymbol\lambda_{T,n}, \lambda_{V,n})$: the electrical part is how a change of the potential field (through Joule heating and through $V_{\text{in}}$) feeds the peak temperature. This is implicit differentiation of the coupled nonlinear solve (handout implementation iii). The backward sweep (`busbar/adjoint.py`) is the brake-disc project's generic sweep (`alternate_topic/optim/adjoint.py`), copied unchanged and applied to the coupled state.
 
 **Shape term.** $\mathbf R_n$ depends on $\mathbf d$ only through the node coordinates; $\sum_n\boldsymbol\lambda_n^{\mathsf T}\partial\mathbf R_n/\partial d_j$ is evaluated by complex step on the residual with the states fixed ($h = 10^{-30}$, exact to round-off, 24 complex residual assemblies per step, no extra PDE solves).
 
@@ -169,7 +169,7 @@ The sweep runs **backward in time** from the end of the recovery to the steady s
 
 <figure>
 <div class="rj-plot" data-plot="taylor"></div>
-<figcaption>Taylor test along a random direction: the error of the central difference against the adjoint directional derivative falls as ε² (grey reference) until round-off takes over.</figcaption>
+<figcaption>Taylor test along a random direction: the error of the central difference against the adjoint directional derivative falls as ε² (grey reference) until round-off takes over. The mass is a quadratic function of the widths and thicknesses, so its central difference is exact and its curve shows round-off only.</figcaption>
 </figure>
 
 ### Cost: adjoint vs. finite differences
@@ -198,7 +198,9 @@ The sweep runs **backward in time** from the end of the recovery to the steady s
 
 **KKT read-out.** A constraint is active when $g_k > -10^{-3}$, a bound when the variable sits on it. The multipliers solve $\nabla f + \sum_k \mu_k\nabla g_k + \sum_{\text{bounds}}\nu_i(\pm\mathbf e_i) = \mathbf 0$ with $\mu,\nu\ge 0$ (non-negative least squares). In scaled form $\mu_k$ is the drop in $m/m_0$ per unit relaxation of $g_k$, so $\mu_k m_0/T_{\lim,k}$ is the **kilograms of copper saved per kelvin** of extra allowed temperature, and $\mu_R m_0/R_{\max}$ the kilograms saved per micro-ohm.
 
-**Engineering reading.** All three starts reach the same design, and only one requirement stops the optimizer: the joint temperature during the pulse. The optimizer makes the bar as wide as the space allows (every width on its upper bound) and thins it, because for the same copper a wide, thin bar has more surface for convection and radiation. Along the bar the thickness is not uniform: it is largest just inboard of the joints and thinnest at mid-span (profile plot above). Next to the joints the bar works as a cooling fin for the joint, carrying the contact heat away from the cell terminal into the span, where it can leave by convection; that copper also adds heat capacity exactly where the pulse would otherwise heat the joint fastest. The resistance (<span class="rj" data-calc="R_optimized" data-d="1"></span> µΩ against <span class="rj" data-calc="R_limit" data-d="0"></span> µΩ) and the insulation limit (<span class="rj" data-calc="bar_peak_optimized" data-d="0"></span> °C against <span class="rj" data-calc="bar_limit" data-d="0"></span> °C) are not active: in copper the whole bar stays within a few kelvin of the joint, so the joint limit is always reached first. The outermost thickness stations sit on their lower bound because they lie inside the bolted overlap, where the terminal underneath does the cooling.
+**Engineering reading.** All three starts reach the same design, and only one requirement stops the optimizer: the joint temperature during the pulse. The optimizer makes the bar as wide as the space allows (every width on its upper bound) and thins it. The bound multipliers say why: relaxing the 50 mm width limit would save <span class="rj" data-calc="width_bound_g_per_mm" data-d="1"></span> g per mm, and <span class="rj" data-calc="width_bound_joint_share_pct" data-d="0"></span> % of that comes from the four stations at the two joints. A wider end makes a larger bolted joint, with lower contact resistance (less joint heat) and more area into the terminal, which is what the active joint limit needs (this follows from modelling $\rho_c$ per unit area; see the assumptions). In the span, a wide thin bar also has more surface for convection and radiation for the same copper, but that effect is about ten times weaker per station. Along the bar the thickness is not uniform: it is largest just inboard of the joints and thinnest at mid-span (profile plot above). Next to the joints the bar works as a cooling fin for the joint, carrying the contact heat away from the cell terminal into the span, where it can leave by convection; that copper also adds heat capacity exactly where the pulse would otherwise heat the joint fastest. The resistance (<span class="rj" data-calc="R_optimized" data-d="1"></span> µΩ against <span class="rj" data-calc="R_limit" data-d="0"></span> µΩ) and the insulation limit (<span class="rj" data-calc="bar_peak_optimized" data-d="0"></span> °C against <span class="rj" data-calc="bar_limit" data-d="0"></span> °C) are not active: in copper the whole bar stays within a few kelvin of the joint, so the joint limit is always reached first. The outermost thickness stations sit on their lower bound because they lie inside the bolted overlap, where the terminal underneath does the cooling.
+
+**What the KS aggregate costs.** At the optimum the joint KS value is exactly at its limit while the true joint peak is <span class="rj" data-calc="ks_gap_joint" data-d="1"></span> K below it. At the multiplier above, that margin is worth about <span class="rj" data-calc="ks_gap_cost_g" data-d="0"></span> g of copper: a larger $\rho_K$, or a limit corrected for the known KS offset, would recover most of it.
 
 ## 7. Nonlinear component (N2)
 
@@ -218,21 +220,21 @@ The constant-property optimum is <span class="rj" data-calc="linear_mass_delta_p
 
 - **Fully nonlinear (+5):** section 7; the coupled state equation is solved by Newton's method at every step with the exact tangent, differentiated implicitly, and checked against the closed-form nonlinear coupled benchmark V4 and the exact nonlinear cooling laws V5 and V6.
 - **Path / time dependence (+5):** transient heating during the current pulse; both temperature constraints aggregate the whole history and the adjoint is swept backward through it (section 5), checked against finite differences.
-- **Design under uncertainty (+5):** three sampled scenarios (nominal, a 10 % higher peak current, 5 K hotter pack air and terminals). The robust design satisfies all nine constraints, each with its own adjoint gradient: the worst case over the samples.
+- **Design under uncertainty (+5):** three sampled scenarios (nominal, a 10 % higher peak current, 5 K hotter pack air and terminals). The robust design satisfies all nine constraints, each with its own adjoint gradient: the worst case over the samples. It is <span class="rj" data-calc="robust_vs_initial_g" data-d="0"></span> g heavier than even the initial uniform bar, but unlike that bar it passes every requirement in every scenario.
 
 <div class="rj-table" data-table="robust"></div>
 
 ## 10. Limitations and AI-use statement
 
-**Limitations.** The joints are lumped (a contact resistance and a conductance to a fixed-temperature terminal), not modelled as the terminal's own 3D conduction. Natural convection uses a single correlation with a fixed length scale, and radiation ignores view factors to neighbouring modules. The bar is straight; real busbars have bends and bolt holes. The current profile is one representative boost pulse (the robust design covers three variants). The temperature limits are design values chosen from the insulation rating and cell data sheets, not from one standard.
+**Limitations.** The joints are lumped (a contact resistance and a conductance to a fixed-temperature terminal), not modelled as the terminal's own 3D conduction. Natural convection uses a single correlation with a fixed length scale, and radiation ignores view factors to neighbouring modules. The bar is straight; real busbars have bends and bolt holes. The current profile is one representative boost pulse (the robust design covers three variants). The temperature limits are design values chosen from the insulation rating and cell data sheets, not from one standard. The KS aggregate leaves the true joint peak a few kelvin below its limit (section 6), so the optimum is conservative. Because the joint is modelled with a resistance per unit area, part of the benefit of a wide bar comes from a larger joint; with a force-controlled contact resistance the optimal widths at the ends could be smaller.
 
 **AI-use statement.** The solver, adjoint, optimization scripts and this website were written with a coding agent (Claude Code). The backward adjoint sweep, the KS functional, the gradient-check tools and the SLSQP driver were first written for an earlier version of this project (a brake disc, kept in `alternate_topic/` of the repository) and reused unchanged; the coupled electro-thermal model, its mesh, the verification ladder and this site's report and viewer are new.
 
 | Component | Written by | How it was checked |
 |---|---|---|
 | Mesh generator (`busbar/mesh.py`) | Agent | Exact volume of the uniform bar; every boundary face in exactly one set (V12); rotation invariance (V2) |
-| Coupled electro-thermal model and Newton (`busbar/model.py`, `solver.py`) | Agent | Ladder V1–V9 against exact answers; analytic tangent against complex step (V11); quadratic Newton convergence; energy identities |
-| Adjoint gradients (`busbar/adjoint.py`, `problem.py`) | Agent | Adjoint vs. central finite differences for every constraint and both variable types, with and without the nonlinear terms; Taylor test |
+| Coupled electro-thermal model and Newton (`busbar/model.py`, `solver.py`) | Agent | Ladder V1–V10 against exact answers; analytic tangent against complex step (V11); quadratic Newton convergence; energy identities |
+| Adjoint gradients (`busbar/adjoint.py`, `problem.py`) | Agent | Adjoint vs. central finite differences for every constraint and both variable types (full model) and for the widths (constant-property model); Taylor test |
 | Optimization (`busbar/optimize.py`, `run_all.py`) | Agent | Three starting designs reach the same optimum; constraints re-checked at the optimum with the true peaks; constant-property optimum re-checked with full physics |
 | Website and 3D viewer (`docs/`) | Agent | Automated test that every table, plot and value key exists; checked in a browser at desktop and phone width against the eight viewer requirements |
 
@@ -249,7 +251,7 @@ pip install -r requirements.txt
 python scripts/run_all.py
 ```
 
-No number on this page is typed by hand: the page reads them from `results.json` when it loads.
+No number on this page is typed by hand: the page reads them from `results.json` when it loads. The run below records its command as `python -m busbar.run_all`, which is what `scripts/run_all.py` calls.
 
 <div class="rj-table" data-table="meta"></div>
 

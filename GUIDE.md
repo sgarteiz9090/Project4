@@ -173,7 +173,7 @@ Doing N2 properly, with Newton's method, exact gradients and a nonlinear benchma
 
 **Problem.** "Peak temperature" means the maximum over every node and every time step. The plain max is not smooth (which point is hottest can jump), and optimizers need smooth functions.
 
-**Fix.** The **KS function** is a "soft maximum": a smooth formula that always sits slightly *above* the true max. Using it as the constraint is safe (conservative), and it is smooth enough to take gradients of. At the optimum, the joint's KS value is exactly 70.0 °C while the true joint peak is 66.0 °C, so the soft max is about 4 °C conservative. The report shows both.
+**Fix.** The **KS function** is a "soft maximum": a smooth formula that always sits slightly *above* the true max. Using it as the constraint is safe (conservative), and it is smooth enough to take gradients of. At the optimum, the joint's KS value is exactly 70.0 °C while the true joint peak is 66.0 °C, so the soft max is about 4 °C conservative. The report shows both. At 11 g per degree (see below) that margin costs about 42 g of copper, so a sharper KS setting would give a lighter bar.
 
 **Analogy.** Instead of asking "who is the tallest person in the room?" (the answer jumps when someone stands up), you compute a weighted average dominated by the tallest few. It gives almost the same answer, but it changes gradually.
 
@@ -231,7 +231,7 @@ The resistance constraint doesn't need KS: it is already one smooth number (volt
 - **History saved** for every iteration, for the convergence plot.
 
 **What the optimized bar looks like, and why it makes sense:**
-- **Every width went to the 50 mm maximum.** For the same amount of copper, a wide, thin bar has more surface for the air to cool, so it runs cooler than a narrow, thick one.
+- **Every width went to the 50 mm maximum.** The main reason is the joints: a wider end makes a bigger bolted joint, and in our model the contact resistance is per square millimetre, so a bigger joint makes less heat and passes more of it into the terminal. The bound multipliers show it: allowing 1 mm more width everywhere would save about 3.5 g, and about 83 % of that comes from the four stations at the joints. In the middle of the bar, a wide, thin bar also has more surface for the air to cool, but that effect is about ten times weaker. (A real bolted joint's resistance depends mostly on how hard the bolt clamps it, not on its area, so this is a modelling assumption worth knowing about.)
 - **The thickness varies along the bar:** about **3.1 mm just inside each joint**, thinning to **2.3 mm in the middle**. Next to the joints, the bar acts as a **cooling fin** for the joint: it carries the contact heat away from the cell terminal into the span, where the air can take it. That copper also stores heat right where the pulse would heat the joint fastest.
 - **At the very ends** (inside the bolted overlap) the thickness is at the **1.5 mm minimum**, because the terminal underneath does the cooling there.
 
