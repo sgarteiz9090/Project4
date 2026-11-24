@@ -38,10 +38,11 @@ mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width:
 .mock-banner { background: var(--fail); color: #fff; padding: 10px 14px; border-radius: 8px; margin: 10px 0; }
 .mock-banner code { background: rgba(255,255,255,0.2); color: #fff; }
 .rj-pending { color: var(--muted); font-style: italic; }
-.rj-svg { width: 100%; height: auto; font: 11px system-ui, sans-serif; fill: var(--ink); }
+.rj-svg { width: 100%; max-width: 760px; display: block; height: auto; font: 11px system-ui, sans-serif; fill: var(--ink); }
 .rj-svg .grid { stroke: var(--line); stroke-width: 1; }
 .rj-svg .frame { fill: none; stroke: var(--muted); }
 .rj-svg .ref { stroke: var(--ink); stroke-dasharray: 5 3; }
+.rj-svg .legbg { fill: var(--bg); opacity: 0.85; }
 .rj-svg .axis { font-size: 12px; fill: var(--muted); }
 .rj-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 figure { margin: 16px 0; }

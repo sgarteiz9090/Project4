@@ -5,7 +5,7 @@
 //   <div class="rj-table" data-table="results"></div>                        table (TABLES below)
 //   <div class="rj-plot" data-plot="taylor"></div>                           SVG plot (PLOTS below)
 // Anything missing from results.json shows as "pending" instead of breaking the page.
-import { loadResults, fmt, get, param, constraintRows, DESIGN_LABEL } from "./data.js";
+import { loadResults, fmt, get, param, constraintRows, prettyName, DESIGN_LABEL } from "./data.js";
 
 const PENDING = '<span class="rj-pending" title="not in results.json yet">pending</span>';
 
@@ -39,7 +39,39 @@ function pct(a, b) { return a && b !== undefined ? (100 * (a - b)) / a : undefin
 function diff(a, b) { return a !== undefined && b !== undefined ? a - b : undefined; }
 function con(r, k, name) { return (r.designs?.[k]?.constraints || []).find((c) => c.name === name); }
 
+// Accept the alternative key names / shapes the optimizer thread writes.
+function normalize(r) {
+  const S = r.sensitivities || {};
+  if (!S.taylor && S.taylor_plot) S.taylor = S.taylor_plot;
+  if (S.cost_view) S.cost = S.cost_view; // compact view: {n_vars, forward_s, adjoint_s, fd_s, speedup}
+  for (const st of r.optimization?.starts || []) {
+    if (Array.isArray(st.history)) {
+      const h = {};
+      for (const row of st.history) for (const [k, v] of Object.entries(row)) (h[k] = h[k] || []).push(v);
+      st.history = h;
+    }
+    if (st.history && !st.history.iter && st.history.mass_kg) st.history.iter = st.history.mass_kg.map((_, i) => i);
+  }
+  return r;
+}
+const startLabel = (name) => (name.includes(":") ? "start " + name.split(":")[0] : name);
+
+// Any object or list as tables: lists of rows become tables, scalars a key/value table.
+function anyTable(v) {
+  if (v === undefined || v === null) return null;
+  if (Array.isArray(v)) return genericTable(v.filter((x) => x && typeof x === "object")) || cell(v);
+  if (typeof v !== "object") return cell(v);
+  const scalars = [], parts = [];
+  for (const [k, x] of Object.entries(v)) {
+    if (Array.isArray(x) && x.length && typeof x[0] === "object") parts.push(`<h4>${k.replace(/_/g, " ")}</h4>` + genericTable(x));
+    else if (x && typeof x === "object" && !Array.isArray(x)) parts.push(`<h4>${k.replace(/_/g, " ")}</h4>` + anyTable(x));
+    else if (!(Array.isArray(x) && x.length > 6)) scalars.push([k.replace(/_/g, " "), typeof x === "string" ? x : cell(x, k)]);
+  }
+  return (scalars.length ? table(["Quantity", "Value"], scalars) : "") + parts.join("");
+}
+
 function fill(r) {
+  normalize(r);
   if (r.meta?.mock) {
     const b = document.getElementById("mock-banner");
     if (b) { b.hidden = false; b.innerHTML = "<b>MOCK DATA.</b> Every number on this page is a placeholder from <code>scripts/make_mock_results.py</code>. Run <code>python scripts/run_all.py</code> to replace them."; }
@@ -120,8 +152,9 @@ const TABLES = {
     const g = r.sensitivities?.gradient_check;
     if (!Array.isArray(g) || !g.length) return null;
     if (!("adjoint" in g[0])) return genericTable(g);
-    return table(["Function", "Variable", "Adjoint", "Finite difference", "Rel. error"],
-      g.map((t) => [t.function, t.variable, Number(t.adjoint).toPrecision(8), Number(t.fd).toPrecision(8), sci(t.rel_error, 1)]));
+    const hasModel = g.some((t) => t.model !== undefined);
+    return table(["Function", "Variable", ...(hasModel ? ["Model"] : []), "Adjoint", "Finite difference", "Rel. error"],
+      g.map((t) => [t.function, t.variable, ...(hasModel ? [t.model ?? ""] : []), Number(t.adjoint).toPrecision(8), Number(t.fd).toPrecision(8), sci(t.rel_error, 1)]));
   },
   cost(r) {
     const c = r.sensitivities?.cost;
@@ -133,14 +166,23 @@ const TABLES = {
     const s = r.optimization?.starts;
     if (!Array.isArray(s) || !s.length) return null;
     return table(["Start", "Iterations", "Final mass (kg)", "Converged"],
-      s.map((t) => [t.name, t.iterations ?? (t.history?.iter ? t.history.iter.length - 1 : ""), fmt(t.final_mass_kg, 3), passMark(t.converged)]));
+      s.map((t) => [t.name, t.iterations ?? (t.history?.iter ? t.history.iter.length - 1 : ""), fmt(t.final_mass_kg, 3),
+        t.converged === undefined ? "" : t.converged ? '<span class="rv-pass">✓ yes</span>' : `✗ no${t.message ? ` (${t.message})` : ""}`]));
   },
   multipliers(r) {
     const a = r.optimization?.active;
     if (!Array.isArray(a) || !a.length) return null;
-    return table(["Active constraint", "Multiplier", "What it means"],
-      a.map((t) => [t.constraint, `${cell(t.multiplier)} ${t.unit || ""}`, t.meaning || ""]));
+    const rows = a.map((t) => [prettyName(t.constraint), `${cell(t.multiplier)} ${t.unit || ""}`, t.meaning || ""]);
+    const b = r.optimization?.active_bounds;
+    if (b && (b.lower?.length || b.upper?.length)) {
+      const lst = (v) => v.join(", ");
+      if (b.lower?.length) rows.push(["Lower thickness bounds", `${b.lower.length} active`, `at the minimum: ${lst(b.lower)}`]);
+      if (b.upper?.length) rows.push(["Upper thickness bounds", `${b.upper.length} active`, `at the maximum: ${lst(b.upper)}`]);
+    }
+    return table(["Active constraint", "Multiplier", "What it means"], rows);
   },
+  n2(r) { return anyTable(r.optimization?.n2_comparison); },
+  robust(r) { return anyTable(r.optimization?.robust); },
   params(r) {
     if (!r.params) return null;
     const rows = Object.entries(r.params).map(([k, v]) => [`<code>${k}</code>`, typeof v === "object" && v ? cell(v.value) : cell(v), typeof v === "object" && v ? v.unit || "" : ""]);
@@ -188,12 +230,15 @@ function plot({ series, xlog = false, ylog = false, xlabel = "", ylabel = "", hl
     svg += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${c}" stroke-width="2" ${s.dash ? 'stroke-dasharray="5 4"' : ""}/>`;
     if (s.markers !== false) for (const [a, b] of pts) svg += `<circle cx="${a}" cy="${b}" r="2.6" fill="${c}"/>`;
   });
-  let lx = L + 8;
+  let lx = L + 8, ly = T + 12;
   series.forEach((s, k) => {
     if (!s.label) return;
     const c = s.color || COLORS[k % COLORS.length];
-    svg += `<line x1="${lx}" x2="${lx + 16}" y1="${T + 12}" y2="${T + 12}" stroke="${c}" stroke-width="2" ${s.dash ? 'stroke-dasharray="4 3"' : ""}/><text x="${lx + 20}" y="${T + 16}">${s.label}</text>`;
-    lx += 30 + 6.2 * s.label.length;
+    const wlab = 30 + 6.2 * s.label.length;
+    if (lx + wlab > L + pw && lx > L + 8) { lx = L + 8; ly += 15; } // wrap the legend
+    svg += `<rect x="${lx - 3}" y="${ly - 9}" width="${wlab - 4}" height="14" class="legbg"/>`;
+    svg += `<line x1="${lx}" x2="${lx + 16}" y1="${ly}" y2="${ly}" stroke="${c}" stroke-width="2" ${s.dash ? 'stroke-dasharray="4 3"' : ""}/><text x="${lx + 20}" y="${ly + 4}">${s.label}</text>`;
+    lx += wlab;
   });
   svg += `<text x="${L + pw / 2}" y="${H - 6}" text-anchor="middle" class="axis">${xlabel}</text>`;
   svg += `<text transform="translate(14 ${T + ph / 2}) rotate(-90)" text-anchor="middle" class="axis">${ylabel}</text></svg>`;
@@ -213,20 +258,20 @@ const PLOTS = {
     const keys = Object.keys(t).filter((k) => k !== "eps" && Array.isArray(t[k]));
     const names = { err_fd: "|f(x+εp) − f(x)|  (should fall as ε)", err_adjoint: "|f(x+εp) − f(x) − ε ∇fᵀp|  (should fall as ε²)" };
     return plot({ xlog: true, ylog: true, xlabel: "step size ε", ylabel: "Taylor remainder",
-      series: [...keys.map((k) => ({ x: t.eps, y: t[k], label: names[k] || k })), slopeRef(t.eps, t[keys[keys.length - 1]], 2, "slope 2")].filter(Boolean) });
+      series: [...keys.map((k) => ({ x: t.eps, y: t[k], label: names[k] || prettyName(k) })), slopeRef(t.eps, t[keys[keys.length - 1]], 2, "slope 2")].filter(Boolean) });
   },
   history(r) {
     const s = r.optimization?.starts;
     if (!Array.isArray(s) || !s.length) return null;
     return plot({ xlabel: "SLSQP iteration", ylabel: "rotor mass (kg)",
-      series: s.map((st) => ({ x: st.history.iter, y: st.history.mass_kg, label: st.name.split(":")[0] ? "start " + st.name.split(":")[0] : st.name })) });
+      series: s.map((st) => ({ x: st.history.iter, y: st.history.mass_kg, label: startLabel(st.name) })) });
   },
   history_g(r) {
     const s = r.optimization?.starts;
     if (!Array.isArray(s) || !s.length || !s[0].history.g_face_C) return null;
     const lim = con(r, "initial", "peak_face_T")?.limit_C;
     return plot({ xlabel: "SLSQP iteration", ylabel: "KS face temperature (°C)", hlines: lim ? [{ y: lim, label: `limit ${lim} °C` }] : [],
-      series: s.map((st) => ({ x: st.history.iter, y: st.history.g_face_C, label: "start " + st.name.split(":")[0] })) });
+      series: s.map((st) => ({ x: st.history.iter, y: st.history.g_face_C, label: startLabel(st.name) })) });
   },
   mms(r) {
     const c = r.convergence;
