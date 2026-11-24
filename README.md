@@ -1,19 +1,25 @@
-# Project 4: Race-car brake disc, PDE-constrained design optimization
+# Project 4: EV battery busbar, PDE-constrained design optimization
 
-Minimum-mass design of a vented cast-iron race brake rotor, subject to temperature limits during a
-hard-braking sequence. Transient nonlinear 3D heat conduction (k(T) + radiation) solved by our own
-finite element code with Newton's method, adjoint gradients swept backward in time, and SLSQP.
+Minimum-mass design of a copper battery-pack busbar that carries 400 A continuously and a 60 s,
+1200 A boost pulse. Two-way coupled electro-thermal 3D finite elements (current flow, Joule heating
+with temperature-dependent conductivity, resistive bolted joints, natural convection and radiation),
+Newton's method in every time step, adjoint gradients swept backward in time, and SLSQP.
+Handout menu item: "Busbar or resistive heater".
 
-- `brakeopt/`: the Python package (mesh, solver, functionals, adjoint, optimizer)
-- `verification/`: the verification ladder
+Report and live 3D comparison: https://sgarteiz9090.github.io/Project4/
+
+- `busbar/`: the Python package (mesh, coupled model, solver, functionals, adjoint, optimizer, verification ladder)
 - `scripts/run_all.py`: **one command** that regenerates `docs/assets/results.json` and every number on the site
-- `docs/`: the GitHub Pages report site
-- `ainote.md`: status board shared by the workstreams
-- `GUIDE.md`: plain-language guide to what is being built and why
+- `docs/`: the GitHub Pages report site (served from `main:/docs`)
+- `GUIDE.md`: plain-language guide to what was built and why
+- `ainote.md`: status board
+- `alternate_topic/`: the earlier brake-disc version of the project, complete and runnable on its own
+  (`cd alternate_topic && python -m pytest`)
 
 ```bash
 pip install -r requirements.txt
 python -m pytest            # fast tests
-python -m pytest -m slow    # slow tests
-python scripts/run_all.py   # regenerate results.json
+python -m pytest -m slow    # slow tests (full ladder, adjoint vs FD)
+python -m busbar.ladder     # verification ladder only
+python scripts/run_all.py   # regenerate results.json (~25 min)
 ```

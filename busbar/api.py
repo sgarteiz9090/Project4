@@ -1,4 +1,4 @@
-"""Functional facade for the adjoint and the optimizer (same contract as brakeopt.api).
+"""Functional facade for the adjoint and the optimizer .
 
 State u_n = [psi, T, V_in] per time level (see busbar.model). `nonlinear` switches every
 temperature dependence (sigma(T), k(T), h(dT), radiation) at once; use the same flag for every
@@ -123,7 +123,7 @@ def vjp_d_all(d, U_hist, lam_hist, nonlinear=True, p=None):
 
 
 def _mass_of(d, q):
-    from brakeopt.fem import HexGeometry
+    from .fem import HexGeometry
     m = build_mesh(d, q)
     return q.rho * np.sum(HexGeometry(m.X, m.hexes).wdetJ) * m.multiplicity
 

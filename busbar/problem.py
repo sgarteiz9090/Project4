@@ -4,16 +4,16 @@
     g_bar   = KS over all nodes and all time levels of (T_C / 105 C)        - 1 <= 0
     g_joint = KS over the joint-face nodes and all time levels of (T_C / 70 C) - 1 <= 0
     g_R     = R(steady continuous rating) / R_max                            - 1 <= 0
-The history functionals are differentiated by the generic backward sweep `optim.adjoint`
-(reused unchanged from the brake-disc project); the state is the full coupled vector u_n.
+The history functionals are differentiated by the generic backward sweep `busbar.adjoint`
+(written first for the brake-disc study); the state is the full coupled vector u_n.
 """
 from __future__ import annotations
 
 import time
 import numpy as np
 
-from optim.adjoint import adjoint_gradients
-from optim.functionals import ks_history, true_max
+from .adjoint import adjoint_gradients
+from .ks import ks_history, true_max
 from .params import Params, PHI_SCALE
 
 C0 = 273.15
@@ -32,7 +32,7 @@ def constraint_spec(p: Params | None = None):
 
 
 class BusbarSolver:
-    """Binds busbar.api with a fixed physics flag and parameter set (like optim.BrakeSolver)."""
+    """Binds busbar.api with a fixed physics flag and parameter set ."""
     nvar = 24
 
     def __init__(self, nonlinear=True, params: Params | None = None):

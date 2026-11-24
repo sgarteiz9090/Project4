@@ -18,27 +18,38 @@ const num = (v, d) => (v === undefined || v === null || Number.isNaN(+v) ? PENDI
 const sci = (v, d = 1) => (v === undefined || v === null ? PENDING : Number(v) === 0 ? "0" : Number(v).toExponential(d));
 const passMark = (p) => (p === undefined ? "" : p ? '<span class="rv-pass">✓ pass</span>' : '<span class="rv-fail">✗ fail</span>');
 
+const peakOf = (r, k, n) => con(r, k, n)?.true_max_C ?? con(r, k, n)?.value_C ?? con(r, k, n)?.value;
 const CALC = {
   mass_saving_pct: (r) => pct(r.designs?.initial?.mass_kg, r.designs?.optimized?.mass_kg),
-  mass_saving_kg: (r) => diff(r.designs?.initial?.mass_kg, r.designs?.optimized?.mass_kg),
-  face_peak_initial: (r) => con(r, "initial", "peak_face_T")?.true_max_C ?? con(r, "initial", "peak_face_T")?.value_C,
-  face_peak_optimized: (r) => con(r, "optimized", "peak_face_T")?.true_max_C ?? con(r, "optimized", "peak_face_T")?.value_C,
-  hub_peak_initial: (r) => con(r, "initial", "peak_hub_T")?.true_max_C ?? con(r, "initial", "peak_hub_T")?.value_C,
-  hub_peak_optimized: (r) => con(r, "optimized", "peak_hub_T")?.true_max_C ?? con(r, "optimized", "peak_hub_T")?.value_C,
-  face_limit: (r) => con(r, "initial", "peak_face_T")?.limit_C,
-  hub_limit: (r) => con(r, "initial", "peak_hub_T")?.limit_C,
+  mass_saving_g: (r) => { const v = diff(r.designs?.initial?.mass_kg, r.designs?.optimized?.mass_kg); return v === undefined ? v : 1000 * v; },
+  mass_initial_g: (r) => (r.designs?.initial ? 1000 * r.designs.initial.mass_kg : undefined),
+  mass_optimized_g: (r) => (r.designs?.optimized ? 1000 * r.designs.optimized.mass_kg : undefined),
+  mass_linear_g: (r) => (r.designs?.optimized_linear ? 1000 * r.designs.optimized_linear.mass_kg : undefined),
+  mass_robust_g: (r) => (r.designs?.optimized_robust ? 1000 * r.designs.optimized_robust.mass_kg : undefined),
+  bar_peak_initial: (r) => peakOf(r, "initial", "peak_bar_T"),
+  bar_peak_optimized: (r) => peakOf(r, "optimized", "peak_bar_T"),
+  joint_peak_initial: (r) => peakOf(r, "initial", "peak_joint_T"),
+  joint_peak_optimized: (r) => peakOf(r, "optimized", "peak_joint_T"),
+  joint_peak_linear: (r) => peakOf(r, "optimized_linear", "peak_joint_T"),
+  R_initial: (r) => peakOf(r, "initial", "resistance"),
+  R_optimized: (r) => peakOf(r, "optimized", "resistance"),
+  R_linear: (r) => peakOf(r, "optimized_linear", "resistance"),
+  bar_limit: (r) => con(r, "initial", "peak_bar_T")?.limit_C,
+  joint_limit: (r) => con(r, "initial", "peak_joint_T")?.limit_C,
+  R_limit: (r) => con(r, "initial", "resistance")?.limit,
   adjoint_speedup: (r) => {
     const c = r.sensitivities?.cost;
     return c && c.fd_s && c.adjoint_s ? c.fd_s / c.adjoint_s : undefined;
   },
   n_nodes: (r) => r.designs?.initial?.mesh?.nodes?.length,
   n_elems: (r) => r.designs?.initial?.mesh?.hexes?.length,
+  n_dof: (r) => r.designs?.initial?.model?.ndof,
+  n_steps: (r) => r.designs?.initial?.model?.n_steps,
   n_frames: (r) => r.designs?.initial?.temperature?.frames?.length,
-  start_spread_g: (r) => {
-    const m = r.optimization?.spread_mass_kg || (r.optimization?.starts || []).map((s) => s.final_mass_kg);
-    return m && m.length > 1 ? 1000 * (Math.max(...m) - Math.min(...m)) : undefined;
-  },
   linear_mass_delta_pct: (r) => pct(r.designs?.optimized?.mass_kg, r.designs?.optimized_linear?.mass_kg),
+  robust_penalty_g: (r) => (r.optimization?.robust ? 1000 * r.optimization.robust.mass_penalty_kg : undefined),
+  joule_W: (r) => r.designs?.initial?.power_W?.joule_bulk,
+  joint_W: (r) => r.designs?.initial?.power_W?.joule_joints_total,
 };
 function pct(a, b) { return a && b !== undefined ? (100 * (a - b)) / a : undefined; }
 function diff(a, b) { return a !== undefined && b !== undefined ? a - b : undefined; }
@@ -126,7 +137,7 @@ function designTable(r, want) {
     if (!keys.length) return null;
   const base = constraintRows(r, r.designs[keys[0]]);
   const head = ["Quantity", ...keys.map((k) => DESIGN_LABEL[k]), "Limit"];
-  const rows = [["Rotor mass (objective)", ...keys.map((k) => `${num(r.designs[k].mass_kg, 2)} kg`), "minimize"]];
+  const rows = [["Busbar mass (objective)", ...keys.map((k) => `${num(1000 * r.designs[k].mass_kg, 1)} g`), "minimize"]];
   base.forEach((c0, i) => {
     rows.push([c0.name, ...keys.map((k) => {
       const c = constraintRows(r, r.designs[k])[i];
@@ -143,9 +154,9 @@ const TABLES = {
   design_vars(r) {
     const i = r.designs?.initial?.d, o = r.designs?.optimized?.d;
     if (!i) return null;
-    const rows = i.station_radius_mm.map((rad, k) => [k + 1, fmt(rad, 1), fmt(i.vane_thickness_mm[k], 2), o ? fmt(o.vane_thickness_mm[k], 2) : PENDING,
-      fmt(i.cheek_thickness_mm[k], 2), o ? fmt(o.cheek_thickness_mm[k], 2) : PENDING]);
-    return table(["Station", "Radius (mm)", "Vane t<sub>v</sub> initial (mm)", "Vane t<sub>v</sub> optimized (mm)", "Cheek t<sub>c</sub> initial (mm)", "Cheek t<sub>c</sub> optimized (mm)"], rows);
+    const rows = i.station_x_mm.map((x, k) => [k + 1, fmt(x, 1), fmt(i.width_mm[k], 1), o ? fmt(o.width_mm[k], 2) : PENDING,
+      fmt(i.thickness_mm[k], 2), o ? fmt(o.thickness_mm[k], 2) : PENDING]);
+    return table(["Station", "x (mm)", "Width w initial (mm)", "Width w optimized (mm)", "Thickness t initial (mm)", "Thickness t optimized (mm)"], rows);
   },
   verification(r) {
     const v = r.verification;
@@ -181,30 +192,38 @@ const TABLES = {
     const b = r.optimization?.active_bounds;
     if (b && (b.lower?.length || b.upper?.length)) {
       const lst = (v) => v.join(", ");
-      if (b.lower?.length) rows.push(["Lower thickness bounds", `${b.lower.length} active`, `at the minimum: ${lst(b.lower)}`]);
-      if (b.upper?.length) rows.push(["Upper thickness bounds", `${b.upper.length} active`, `at the maximum: ${lst(b.upper)}`]);
+      if (b.lower?.length) rows.push(["Lower bounds", `${b.lower.length} active`, `at the minimum: ${lst(b.lower)}`]);
+      if (b.upper?.length) rows.push(["Upper bounds", `${b.upper.length} active`, `at the maximum: ${lst(b.upper)}`]);
     }
     return table(["Active constraint", "Multiplier", "What it means"], rows);
   },
-  n2(r) { return anyTable(r.optimization?.n2_comparison); },
+  n2(r) { return null; },
   robust(r) {
     const R = r.optimization?.robust;
     if (!R) return null;
     if (!R.summary || !R.nominal_optimum_under_scenarios) return anyTable(R);
     const rob = R.summary, nom = R.nominal_optimum_under_scenarios;
-    const sc = (R.scenarios || []).map((x) => [x.label, fmt(x.v_high_kmh, 0), fmt(x.front_bias, 2)]);
+    const sc = (R.scenarios || []).map((x) => [x.label, x.I_peak ? `${fmt(x.I_peak, 0)} A` : "1200 A", x.T_amb ? `${fmt(x.T_amb - 273.15, 0)} °C` : "40 °C"]);
     const byName = (list) => Object.fromEntries((list || []).map((c) => [c.name, c]));
     const nb = byName(nom.constraints), rb = byName(rob.constraints);
-    const val = (c) => (c ? `${fmt(c.true_max_C ?? c.ks_value_C, 1)} °C ${passMark(c.pass)}` : "");
-    const rows = [["Rotor mass", `${fmt(nom.mass_kg, 2)} kg`, `${fmt(rob.mass_kg, 2)} kg`, ""]];
+    const u = (c) => (c.unit === "C" ? "°C" : "µΩ");
+    const val = (c) => (c ? `${fmt(c.true_value, 1)} ${u(c)} ${passMark(c.pass)}` : "");
+    const rows = [["Busbar mass", `${fmt(1000 * nom.mass_kg, 1)} g`, `${fmt(1000 * rob.mass_kg, 1)} g`, ""]];
     for (const name of Object.keys(nb)) {
-      const [con, scen] = name.split(" | ");
-      rows.push([`${prettyName(con)}, ${scen || ""}`, val(nb[name]), val(rb[name]), `≤ ${fmt(nb[name].limit_C, 0)} °C`]);
+      const [cn, scen] = name.split(" | ");
+      rows.push([`${prettyName(cn)}, ${scen || ""}`, val(nb[name]), val(rb[name]), `≤ ${fmt(nb[name].limit, 0)} ${u(nb[name])}`]);
     }
     const it = R.iterations ?? R.nit;
-    return table(["Scenario", "Initial speed (km/h)", "Front brake bias"], sc) +
+    return table(["Scenario", "Peak current", "Pack air / terminals"], sc) +
       table(["Quantity (true peak)", "Nominal optimum", "Robust optimum", "Limit"], rows) +
-      `<p>Robust design: ${it} SLSQP iterations, ${R.converged ? "converged" : "not converged"}; it costs <b>${fmt(R.mass_penalty_kg, 2)} kg</b> more than the nominal optimum.</p>`;
+      `<p>Robust design: ${it} SLSQP iterations, ${R.converged ? "converged" : "not converged"}; it costs <b>${fmt(1000 * R.mass_penalty_kg, 1)} g</b> more than the nominal optimum.</p>`;
+  },
+  n2_attr(r) {
+    const n = r.optimization?.n2_comparison;
+    if (!n) return null;
+    const row = (lab, list) => (list || []).map((t) => [lab, t.model, fmt(t.peak_bar_C, 1), fmt(t.peak_joint_C, 1), fmt(t.resistance_uohm, 2)]);
+    return table(["Design", "Physics used to evaluate it", "Peak bar T (°C)", "Peak joint T (°C)", "R (µΩ)"],
+      [...row("optimum of the full model", n.attribution_nonlinear_opt), ...row("optimum of the constant-property model", n.attribution_linear_opt)]);
   },
   params(r) {
     if (!r.params) return null;
@@ -287,21 +306,22 @@ const PLOTS = {
   history(r) {
     const s = r.optimization?.starts;
     if (!Array.isArray(s) || !s.length) return null;
-    return plot({ xlabel: "SLSQP iteration", ylabel: "rotor mass (kg)",
+    return plot({ xlabel: "SLSQP iteration", ylabel: "busbar mass (kg)",
       series: s.map((st) => ({ x: st.history.iter, y: st.history.mass_kg, label: startLabel(st.name) })) });
   },
   history_g(r) {
     const s = r.optimization?.starts;
-    if (!Array.isArray(s) || !s.length || !s[0].history.g_face_C) return null;
-    const lim = con(r, "initial", "peak_face_T")?.limit_C;
-    return plot({ xlabel: "SLSQP iteration", ylabel: "KS face temperature (°C)", hlines: lim ? [{ y: lim, label: `limit ${lim} °C` }] : [],
-      series: s.map((st) => ({ x: st.history.iter, y: st.history.g_face_C, label: startLabel(st.name) })) });
+    if (!Array.isArray(s) || !s.length || !s[0].history.peak_joint_C) return null;
+    const lim = con(r, "initial", "peak_joint_T")?.limit_C;
+    return plot({ xlabel: "SLSQP iteration", ylabel: "peak joint temperature (°C)", hlines: lim ? [{ y: lim, label: `limit ${lim} °C` }] : [],
+      series: s.map((st) => ({ x: st.history.iter, y: st.history.peak_joint_C, label: startLabel(st.name) })) });
   },
   mms(r) {
     const c = r.convergence;
     if (!c) return null;
-    const NAMES = { mms_space: "Manufactured solution, space", mms_time: "Manufactured solution, time",
-      kirchhoff: "Nonlinear k(T) slab (Kirchhoff), space", radiation_time: "Radiation-cooled lump, time" };
+    const NAMES = { mms_space: "MMS, coupled 3D, temperature (V7a)", mms_space_psi: "MMS, coupled 3D, potential (V7b)",
+      coupled_1d: "Two-way coupled σ(T) bar, space (V4)", natconv_time: "Natural-convection lump, time (V5)",
+      radiation_time: "Radiation-cooled lump, time (V6)" };
     const out = [];
     let k = 0;
     for (const [name, v] of Object.entries(c)) {
@@ -321,24 +341,31 @@ const PLOTS = {
     const n = r.convergence?.newton?.residuals;
     if (!n) return null;
     return plot({ ylog: true, xlabel: "Newton iteration", ylabel: "residual norm", width: 420, height: 240,
-      series: [{ x: n.map((_, i) => i), y: n, label: "one braking time step" }] });
+      series: [{ x: n.map((_, i) => i), y: n, label: "first time step of the current pulse" }] });
   },
   thickness(r) {
-    const keys = ["initial", "optimized", "optimized_linear"].filter((k) => r.designs?.[k]?.d);
+    const keys = ["initial", "optimized", "optimized_linear", "optimized_robust"].filter((k) => r.designs?.[k]?.d);
     if (!keys.length) return null;
     const s = [];
     keys.forEach((k, i) => {
       const d = r.designs[k].d;
-      s.push({ x: d.station_radius_mm, y: d.cheek_thickness_mm, label: `${DESIGN_LABEL[k]} cheek`, color: COLORS[i] });
-      s.push({ x: d.station_radius_mm, y: d.vane_thickness_mm, label: `${DESIGN_LABEL[k]} vane`, color: COLORS[i], dash: true });
+      s.push({ x: d.station_x_mm, y: d.thickness_mm.map((t) => 10 * t), label: `${DESIGN_LABEL[k]}: 10 × thickness`, color: COLORS[i] });
+      s.push({ x: d.station_x_mm, y: d.width_mm, label: `${DESIGN_LABEL[k]}: width`, color: COLORS[i], dash: true });
     });
-    return plot({ xlabel: "radius (mm)", ylabel: "thickness (mm)", series: s, height: 320 });
+    return plot({ xlabel: "position along the bar x (mm)", ylabel: "width, 10 × thickness (mm)", series: s, height: 320 });
   },
   peaks(r) {
     const keys = ["initial", "optimized", "optimized_linear"].filter((k) => r.designs?.[k]?.history);
     if (!keys.length) return null;
-    const lim = con(r, "initial", "peak_face_T")?.limit_C;
-    return plot({ xlabel: "time (s)", ylabel: "peak friction-face T (°C)", hlines: lim ? [{ y: lim, label: `limit ${lim} °C` }] : [],
-      series: keys.map((k, i) => ({ x: r.designs[k].history.times, y: r.designs[k].history.peak_face_C, label: DESIGN_LABEL[k], color: COLORS[i], markers: false })) });
+    const lim = con(r, "initial", "peak_joint_T")?.limit_C, limb = con(r, "initial", "peak_bar_T")?.limit_C;
+    const s = [];
+    keys.forEach((k, i) => {
+      const h = r.designs[k].history;
+      s.push({ x: h.times, y: h.peak_bar_C, label: `${DESIGN_LABEL[k]}: bar peak`, color: COLORS[i], markers: false });
+      s.push({ x: h.times, y: h.peak_joint_C, label: `${DESIGN_LABEL[k]}: joint`, color: COLORS[i], dash: true, markers: false });
+    });
+    return plot({ xlabel: "time after the start of the current pulse (s)", ylabel: "temperature (°C)",
+      hlines: [lim ? { y: lim, label: `joint limit ${lim} °C` } : null, limb ? { y: limb, label: `insulation limit ${limb} °C` } : null].filter(Boolean),
+      series: s });
   },
 };

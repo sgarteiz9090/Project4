@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
 
-from brakeopt.fem import HEX_FACES
+from .fem import HEX_FACES
 from .params import Params, N_STATIONS, station_x, split_design
 
 
