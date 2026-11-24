@@ -2,7 +2,7 @@
 
 *For someone who only half-follows the lectures and wants to know what was built, why, and how each piece earns points.*
 
-> **Status of this guide (2026-11-24).** Written from the busbar code, its notes in [`ainote.md`](ainote.md) and its full-run `results.json`. The website always reads its numbers from `results.json`, so if this guide and the website ever disagree, **the website is right** and this guide is stale. The earlier brake disc project and its guide are kept in [`alternate_topic/`](alternate_topic/).
+> **Status of this guide (2026-11-24).** Written from the busbar code, its notes in [`ainote.md`](ainote.md), and checked against the final full run in `docs/assets/results.json`. The website always reads its numbers from `results.json`, so if this guide and the website ever disagree, **the website is right** and this guide is stale. The earlier brake disc project and its guide are kept in [`alternate_topic/`](alternate_topic/).
 
 ---
 
@@ -72,14 +72,14 @@ The handout says every problem has the form *"minimize something, subject to lim
   design ─┼─►  thicknesses d        (geometry)        SIMULATION: voltage  │
           │       ▲                                     and temperature    │
           │       │                                     through the pulse  │
-          │       │                                     (~1.6 s)           │
+          │       │                                     (~1.7 s)           │
           │       │                                         │              │
           │  [5] OPTIMIZER  ◄── mass, max temps, ◄── [3] SCORE THE DESIGN  │
           │   (SLSQP: "move      resistance              │                 │
           │    the 24 knobs   + their gradients          ▼                 │
           │    this way")          ▲          [4] ADJOINT: gradients of    │
           │                        └───────── every score w.r.t. all 24    │
-          │                                   knobs at once (~3.8 s)       │
+          │                                   knobs at once (~4.3 s)       │
           └───────────────────────────────────────────────────────────────┘
                      │ when nothing improves any more
                      ▼
@@ -142,7 +142,7 @@ In words: *(how fast a point warms up) × (how much heat it takes to warm it) = 
 
 ### 4.3 Stepping through time (implicit Euler)
 
-The run starts with one very long step that brings the bar to its steady 400 A temperature. Then it marches through the pulse in 2 s steps and through the recovery in 6 s steps. "Implicit Euler" means each step solves for the *new* state using the *new* conditions, which stays stable. One full run takes about **1.6 seconds**.
+The run starts with one very long step that brings the bar to its steady 400 A temperature. Then it marches through the pulse in 2 s steps and through the recovery in 6 s steps. "Implicit Euler" means each step solves for the *new* state using the *new* conditions, which stays stable. One full run takes about **1.7 seconds**.
 
 ### 4.4 The nonlinear part: why Newton's method is needed
 
@@ -181,7 +181,7 @@ The resistance constraint doesn't need KS: it is already one smooth number (volt
 
 ### 4.6 Verification: proving the solver is right before trusting it
 
-**Why.** A solver written with a coding agent "is wrong until proven otherwise" (handout). We prove it by running problems where we know the exact answer. The handout requires at least six tests in a table. We have **12 tests (17 rows, since some have two parts), and all pass** (`python -m busbar.ladder`):
+**Why.** A solver written with a coding agent "is wrong until proven otherwise" (handout). We prove it by running problems where we know the exact answer. The handout requires at least six tests in a table. We have **12 tests (18 rows, since some have two parts), and all pass** (`python -m busbar.ladder`; `python scripts/run_all.py` also runs it):
 
 | ID | Test, in plain words | Result |
 |----|------|--------|
@@ -204,9 +204,9 @@ The resistance constraint doesn't need KS: it is already one smooth number (volt
 
 **What a gradient is.** For each of the 24 widths and thicknesses, the gradient says: *if I make this a bit bigger, how much does the peak joint temperature (or the resistance, or the mass) change?* It is a list of 24 sensitivities per score.
 
-**The slow way (finite differences).** Nudge knob 1, rerun the whole simulation, see what changed, and repeat for all 24 knobs. On our model that takes about **75 seconds** per gradient.
+**The slow way (finite differences).** Nudge knob 1, rerun the whole simulation, see what changed, and repeat for all 24 knobs. On our model that takes about **81 seconds** per gradient.
 
-**The clever way (the adjoint method).** Run the simulation once forward. Then run **one backward pass**, and out come the sensitivities of all the scores to *all 24 knobs at once*. On our model it takes **3.8 seconds, about 14× faster**. The gap grows with the number of knobs, because the adjoint's cost doesn't depend on how many there are.
+**The clever way (the adjoint method).** Run the simulation once forward. Then run **one backward pass**, and out come the sensitivities of all the scores to *all 24 knobs at once*. On our model it takes **4.3 seconds, about 14× faster**. The gap grows with the number of knobs, because the adjoint's cost doesn't depend on how many there are.
 
 **Analogy.** You want to know how much each of 24 guests at a party added to the noise. The slow way: ask each guest to leave, one at a time, and measure. The adjoint way: record the room once, then play the recording backward through a model of the room's acoustics, and it tells you every guest's contribution in one pass.
 
@@ -217,7 +217,7 @@ The resistance constraint doesn't need KS: it is already one smooth number (volt
 **How we proved the gradients are right.**
 - **Gradient-check table:** 48 checks of adjoint against brute force (central finite differences), covering mass, both temperatures and the resistance, on both widths and thicknesses. The worst disagreement is **4×10⁻¹⁰** of the gradient size: about 10 matching digits.
 - **Taylor test plot:** as the finite-difference step ε shrinks, the mismatch falls like ε² until round-off takes over. A flat line would mean a bug.
-- **Cost comparison:** forward 1.6 s, adjoint 3.8 s, finite differences 75 s.
+- **Cost comparison:** forward 1.7 s, adjoint 4.3 s, finite differences 81 s.
 
 ### 4.8 The optimizer (SLSQP)
 
@@ -361,4 +361,5 @@ The handout requires: *"what the coding agent wrote, which parts you derived or 
 
 ## 10. Change log of this guide
 
+- 2026-11-24, installed as GUIDE.md on the busbar layout; every number checked against the final full run (timings: forward 1.7 s, adjoint 4.3 s, FD 81 s).
 - 2026-11-24, first version for the busbar topic, from the full-run results on the busbar branch.
