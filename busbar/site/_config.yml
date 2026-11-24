@@ -1,0 +1,9 @@
+title: "EV battery busbar: electro-thermal PDE-constrained design optimization"
+description: "Minimum-mass copper busbar under a current pulse, with two-way coupled Joule heating"
+markdown: kramdown
+kramdown:
+  input: GFM
+  math_engine: mathjax
+  hard_wrap: false
+exclude:
+  - README.md
