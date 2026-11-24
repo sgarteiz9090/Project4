@@ -48,8 +48,8 @@ class Params:
     emissivity: float = 0.60
 
     # ---------------- vehicle / braking ----------------
-    vehicle_mass: float = 1300.0    # kg (car + driver)
-    front_bias: float = 0.65        # fraction of braking energy on the front axle
+    vehicle_mass: float = 900.0     # kg (light race car + driver)
+    front_bias: float = 0.60        # fraction of braking energy on the front axle
     partition: float = 0.90         # fraction of friction heat entering the disc (rest to pad)
     tyre_radius: float = 0.33       # m
     v_high: float = 250.0 / 3.6     # m/s, speed at start of each stop
@@ -63,7 +63,7 @@ class Params:
 
     # ---------------- environment / convection ----------------
     T_amb: float = 308.15           # K, air and radiation surroundings (35 C)
-    T_init: float = 473.15          # K, disc temperature at the start of the sequence (200 C)
+    T_init: float = 423.15          # K, disc temperature at the start of the sequence (150 C)
     T_bell: float = 308.15          # K, sink temperature behind the hub/bell joint
     h_hub: float = 1000.0           # W/(m^2 K), conductance of the bell/hub joint at r = r_i
     h_min: float = 10.0             # W/(m^2 K), natural-convection floor at zero speed
@@ -74,8 +74,8 @@ class Params:
 
     # ---------------- constraints ----------------
     T_face_max: float = 973.15      # K (700 C)
-    T_hub_max: float = 573.15       # K (300 C) bell / bearing protection
-    ks_rho: float = 0.1             # 1/K, KS aggregation parameter (owned by WS2+3)
+    T_hub_max: float = 523.15       # K (250 C) aluminium bell / wheel-bearing protection
+    ks_rho: float = 1.0             # 1/K, KS aggregation parameter (owned by WS2+3): KS within ~3-5 K of the true peak
 
     # ---------------- numerics ----------------
     nr_inner: int = 2       # radial elements between r_i and r_pad_in
@@ -88,7 +88,7 @@ class Params:
     newton_maxit: int = 25
 
     # ---------------- model switches (N2 nonlinearity) ----------------
-    radiation: bool = True   # False: radiation linearised about T_init (h_rad = 4 eps sigma T_init^3)
+    radiation: bool = True   # False: radiation replaced by its tangent (linearisation) at T_init
     kT: bool = True          # False: k frozen at k(T_init)
 
     def to_dict(self) -> dict:

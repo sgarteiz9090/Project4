@@ -13,7 +13,7 @@ Deadline: GitHub Pages site final on **Nov 25, 11:59 PM America/Phoenix** (assum
 | WS | Scope | Branch (write yours here) | Owner thread |
 |----|-------|---------------------------|--------------|
 | WS1 | Repo scaffold, mesh, transient nonlinear solver, verification ladder, integration/merging | `claude/project-thread-3ve605` | Build brake disc heat solver |
-| WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `gradients-optimizer` | adjoint + optimizer thread |
+| WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `claude/project-thread-1qs3ox` | adjoint + optimizer thread |
 | WS4 | Website: GitHub Pages report (10 sections), three.js viewer (8 requirements) | _fill in_ | |
 | WS5 | GUIDE.md beginner guide (each WS also adds notes to its own GUIDE section) | `claude/project-thread-c068hs` | guide thread |
 
@@ -152,13 +152,60 @@ Add new keys freely; do not rename or remove existing ones without a note here.
 
 ## WS1: Solver, verification, integration (branch `claude/project-thread-3ve605`)
 **Done**
-- Repo scaffold: package layout, requirements, pytest setup, this file, `brakeopt/params.py` (all physical parameters + design vector helpers).
+- Repo scaffold: package layout, requirements, pytest setup, this file, `brakeopt/params.py`.
+- `brakeopt/mesh.py` (quarter-sector hex mesh, exact dX/dd), `fem.py`, `loads.py` (braking schedule,
+  step-averaged heat input, convection correlations), `model.py` (residual + exact tangent, k(T),
+  radiation, batch- and complex-safe), `solver.py` (implicit Euler + Newton), `functionals.py`, `api.py`.
+- Baseline (default mesh, 231 nodes, 120 hexes, 144 steps): forward solve ~1.7 s, mass 9.25 kg,
+  peak friction face ~683 C, peak hub ~199 C (limits 700 C / 250 C). Newton converges quadratically
+  (residual 1e2 -> 1e-1 -> 1e-7 -> 1e-13). `vjp_d_all` ~1.2 s.
+- Scenario: 900 kg car, 60 % front, 3 stops 250->80 km/h at 1.5 g, 12 s re-acceleration between,
+  disc starts at 150 C. All in `Params`.
+
+**Plain-language note (for GUIDE.md)**
+The solver chops a 1/192 slice of the disc (half of one vane and the cheek above it; the rest of the
+disc is copies of this slice by symmetry) into small brick elements and tracks the temperature at
+every brick corner, tenth of a second by tenth of a second, through three hard stops. At each time
+step the equations are nonlinear (iron conducts worse when hot, and a hot disc glows away heat as
+T^4), so Newton's method guesses, measures how wrong the guess is, and corrects, usually in 3-4 tries.
+
+**Verification ladder results (default mesh; all PASS; `python -m verification.ladder`)**
+| ID | Test | Result |
+|----|------|--------|
+| V1 | Steady slab, convection both ends, exact linear profile | max error 1e-16 of dT |
+| V2 | Same slab, arbitrary 3D rotation + translation | identical to 3e-16 |
+| V3a/b | Nonlinear k(T) slab vs Kirchhoff exact solution | flux rel. error 4e-7; L2 order 2.00 |
+| V4a/b | Radiation-cooled plate (T^4) vs exact T(t) | rel. error 2e-6 (Richardson); order in dt 0.99 |
+| V5 | MMS steady 3D on the curved sector mesh, k(T)+radiation+convection | L2 order 1.98 |
+| V6 | MMS transient, all nonlinear terms | order in dt 1.00 |
+| V7a/b | Heat input = kinetic-energy budget; stored + lost = input | exact; imbalance 2e-16 |
+| V8 | Newton on the braking problem | quadratic (order ~2.2): 2e2, 6e-1, 2e-6, 3e-13 |
+| V9 | Mesh convergence of peak face T (x1, x2, x3 meshes) | (slow, running) |
+| V10 | Every exterior face belongs to exactly one boundary set | 184 = 184 |
+
+Bug caught by the ladder (for the AI-use statement): in V3 the agent's first version measured the
+heat flux leaving the cold end with the wrong sign, so V3a failed (-1.29e6 vs +1.29e6 W/m^2); the
+check against the exact Kirchhoff flux caught it. Separately, the first batched residual reused the
+same einsum index letter for the time-step batch and the element node, which crashed on first run.
+
+**Plain-language note: verification (for GUIDE.md)**
+Before trusting the solver we fed it problems whose answers are known exactly: a plain wall with
+heat flowing through it, the same wall turned in a random direction, a wall whose conductivity
+changes with temperature, a plate cooling only by glowing, and "manufactured" answers where we pick
+the temperature field first and work out what heating would produce it. The solver reproduces them,
+and its error shrinks at the textbook rate as the bricks get smaller (4x less error per halving) and
+as the time step gets smaller (2x less per halving). Energy is conserved exactly: all the braking
+energy put in is accounted for as heat stored in the iron plus heat lost to air and radiation.
+
+**Outputs**: `scripts/run_all.py` writes `docs/assets/results.json` (`verification`, `convergence`,
+`designs.initial`, `figures`) and `docs/assets/fig_convergence.png`, `fig_newton.png`, `fig_history.png`.
+Mesh JSON also includes `faces` (boundary sets, incl. `sym_*` planes) to help the viewer draw surfaces.
 
 **In progress**
-- Mesh generator, ThermalModel (k(T) + radiation + convection + braking flux), Newton/implicit Euler.
+- V9 mesh study; integration of branches.
 
 **Next**
-- Verification ladder V1-V7 (see plan below), `scripts/run_all.py` writing initial design to results.json.
+- Re-run `scripts/run_all.py` full once WS2+3 optimization is final.
 
 **Blocked on**
 - nothing
@@ -175,8 +222,33 @@ Verification ladder plan (WS1):
 | V7 | Invariance: rotate/translate mesh, mesh-independence of peak T | identical results |
 | V8 | (WS2+3) adjoint vs central FD, every constraint, both variable types; Taylor test | |
 
-## WS2+3: Adjoint gradients + optimization (branch `gradients-optimizer`)
+## WS2+3: Adjoint gradients + optimization (branch `claude/project-thread-1qs3ox`)
 _section owned by the adjoint + optimizer thread_
+
+Code lives in `optim/` (does not touch `brakeopt/`):
+- `optim/adjoint.py`: generic discrete adjoint, backward sweep over implicit-Euler steps, all functionals share one LU of A_n^T per step; uses `vjp_d_all` if present, else `vjp_d`, else complex step on `residual`.
+- `optim/functionals.py`: KS over (node set x all time steps) of a = T_C / limit_C; rho_dimensionless = rho_per_K * limit_C (rho_per_K defaults to `p.ks_rho`). True maxima reported alongside.
+- `optim/design_problem.py`: scaled problem x = d/d0, f = m/m0, g_k = KS_k - 1 <= 0, with caching.
+- `optim/gradcheck.py`: FD table, Taylor test, adjoint-vs-FD cost. `optim/optimize.py`: SLSQP + history + KKT read-out (NNLS multipliers on the active set, plus SLSQP's own).
+- `optim/brake_adapter.py`: binds `brakeopt.api` (radiation/kT flags fixed per instance).
+- `optim/toy_problem.py`: 1D nonlinear transient stand-in with the same API, used only by `tests/test_adjoint_toy.py`.
+
+**Done**
+- Adjoint derivation + implementation; verified on the 1D stand-in (nonlinear k(T) + radiation): adjoint vs central FD agree to ~1e-10 relative, Taylor test falls as eps^2 over 5 decades.
+- Bug the check caught (for the AI-use statement): the first Newton stopping test (residual relative to ||rho c T||) stopped after 1 iteration, so FD and adjoint disagreed at 4e-7 with a *flat* Taylor curve. Fix: stop on the Newton update, tol 1e-13. **WS1: please make sure `newton_tol` is tight enough for gradient checks (converge to ~1e-12 relative in the update), otherwise FD checks will flatten out.**
+
+**In progress**
+- Waiting for `brakeopt/api.py` to be real; then: gradient-check table (both variable types, both constraints, rad on/off), Taylor plot, cost comparison.
+
+**Next**
+- SLSQP from >= 2 starts (baseline, all-max), history per iteration, active set + multipliers in kg per % limit relaxation; linear (radiation=False, kT=False) optimum for the N2 comparison; optional uncertainty bonus (sampled initial speed / front bias, KS over scenarios).
+- `optim/run_ws23.py` will return the `"sensitivities"`, `"optimization"`, `designs.optimized`, `designs.optimized_linear` blocks for `scripts/run_all.py` to merge in.
+
+**Blocked on**
+- `brakeopt/api.py` implementation (WS1).
+
+**Plain-language note (for GUIDE.md)**
+- The *adjoint* answers "if I make vane 5 a little thicker, how much hotter or cooler does the hottest point on the disc get during the whole braking sequence?" for all 24 dimensions at once. It does that by running the heat simulation once forward in time, then running one extra, cheaper "backward" calculation from the last stop to the first, which tracks how much each moment's temperatures influence the final peak. Checking against brute force (nudging each dimension and re-running the simulation) proves the numbers are right.
 
 ## WS4: Website
 _not started_
