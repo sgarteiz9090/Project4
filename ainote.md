@@ -305,3 +305,32 @@ Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: 
 - **In progress:** Nothing.
 - **Next:** Re-check if results change again.
 - **Blocked on:** nothing.
+
+## Fallback topic: busbar (branch `claude/project-thread-qlfcij`, folder `busbar/`)
+_Not merged into `main`. `main` stays the brake disc unless Sivan decides otherwise._
+
+**Why this topic.** The brake disc is off-menu and needed approval by Nov 4. Of the menu items, the
+"Busbar or resistive heater" and the "Heat sink" both earn the fully-nonlinear (+5) and time-dependent (+5)
+bonuses with our transient nonlinear heat solver; the busbar was chosen as the more impressive one
+(two-way coupled electro-thermal multiphysics: sigma(T), Joule heating, contact resistance, monolithic Newton).
+
+**Done** (all numbers from `busbar/site/assets/results.json`, full run, 25 min)
+- Coupled model `busbar/model.py`: state [potential, T, V_in]; bolted lap joints with contact resistance and a
+  conductance into the 40 C terminal; natural convection h ~ dT^(1/4) and radiation on exposed faces; k(T).
+  400 A steady (as step 1), 60 s at 1200 A, 240 s at 400 A. 24 variables: width and thickness at 12 stations.
+- Verification `python -m busbar.ladder`: V1-V12 all pass (exact resistance 2e-16; 1D Joule profile nodally exact;
+  closed-form two-way coupled sigma(T) benchmark, order 2; exact natural-convection and radiation cooling laws, order 1;
+  3D coupled MMS order ~2; energy identities 1e-16; Newton quadratic; tangent vs complex step 4e-16; mesh study).
+- Adjoint (reuses `optim/adjoint.py` unchanged) vs central FD: max error 4e-10 of the gradient norm; 14x faster than FD.
+- SLSQP, 3 starts all reach 351.2 g from 403.2 g (-12.9 %). Initial bar fails the joint limit and the resistance
+  budget; optimum passes all. Active: joint temperature only (0.011 kg/K). Widths at the 50 mm bound; thickness
+  largest next to the joints (bar acts as a fin for the joint).
+- N2: hand-calculation model (20 C sigma, k; fixed h) gives 322 g but fails the resistance budget with full physics
+  (54.3 vs 52 micro-ohm); attribution shows sigma(T) is the nonlinearity that matters.
+- Uncertainty bonus: robust design over (+10 % current, +5 K ambient) is 420.8 g (+70 g); nominal optimum fails the
+  joint limit in both off-nominal scenarios.
+- Site in `busbar/site/` (own report, own viewer), checked in headless Chromium at 1280 and 390 px.
+
+**To switch to the busbar (only if the instructor says no):** on a branch from `main`, merge this branch, run
+`bash busbar/swap_into_docs.sh`, `python -m pytest -q`, commit and merge to `main`. Pages then shows the busbar.
+Sivan still has to write the AI-use box (section 10) in `busbar/site/index.md`.
