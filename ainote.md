@@ -151,6 +151,13 @@ Add new keys freely; do not rename or remove existing ones without a note here.
 ---
 
 ## WS1: Solver, verification, integration (branch `claude/project-thread-3ve605`)
+**Update 09:30 UTC: hub limit 250 C -> 220 C** (cited: NLGI GC-LB grease dropping point, ASTM D2265/D4950;
+DOT3 boiling 205 C, FMVSS 116). Full `run_all.py` rerun (51 min): all 13 verification rows pass, gradient
+check max rel. error 7.7e-8. All 3 SLSQP starts converge to the same optimum, **7.202 kg** (was 7.122 kg)
+from 9.253 kg. **Both temperature constraints are now active**: face 695.8 C true peak (KS at 700 C),
+hub 215.4 C true peak (KS at 220 C). Multipliers: face 0.0188 kg/K, hub 0.0058 kg/K. The linear-model
+optimum, 6.853 kg, fails at 722.8 C under full physics.
+
 **Done**
 - Repo scaffold: package layout, requirements, pytest setup, this file, `brakeopt/params.py`.
 - `brakeopt/mesh.py` (quarter-sector hex mesh, exact dX/dd), `fem.py`, `loads.py` (braking schedule,
