@@ -75,7 +75,7 @@ class Params:
     # ---------------- constraints ----------------
     T_face_max: float = 973.15      # K (700 C)
     T_hub_max: float = 523.15       # K (250 C) aluminium bell / wheel-bearing protection
-    ks_rho: float = 0.1             # 1/K, KS aggregation parameter (owned by WS2+3)
+    ks_rho: float = 1.0             # 1/K, KS aggregation parameter (owned by WS2+3): KS within ~3-5 K of the true peak
 
     # ---------------- numerics ----------------
     nr_inner: int = 2       # radial elements between r_i and r_pad_in

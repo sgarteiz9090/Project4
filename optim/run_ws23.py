@@ -110,7 +110,22 @@ def optimization(quick=False):
         "linear_opt_checked_with_full_physics": rl["summary_full_physics"]["constraints"],
         "d_nonlinear_mm": (1e3 * prob.d_of(x_nl)).tolist(),
         "d_linear_mm": (1e3 * lin.d_of(x_lin)).tolist()}
+    if not quick:
+        out["robust"] = robust_block(x_nl, prob)
     return out, prob.d_of(x_nl), lin.d_of(x_lin)
+
+
+def robust_block(x_nominal_opt, prob_nominal):
+    """Bonus: worst case over sampled scenarios; nominal optimum re-checked, then re-optimized."""
+    from .robust import RobustProblem
+    rp = RobustProblem()
+    check_nominal = _design_summary(rp, x_nominal_opt)
+    r = run_slsqp(rp, x_nominal_opt, label="robust", maxiter=200)
+    r["summary"] = _design_summary(rp, np.array(r["x_opt"]))
+    r["nominal_optimum_under_scenarios"] = check_nominal
+    r["scenarios"] = rp.scenario_params
+    r["mass_penalty_kg"] = r["summary"]["mass_kg"] - _design_summary(prob_nominal, x_nominal_opt)["mass_kg"]
+    return r
 
 
 def run(quick=False, fig_dir=None):
