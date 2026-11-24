@@ -13,7 +13,7 @@ Deadline: GitHub Pages site final on **Nov 25, 11:59 PM America/Phoenix** (assum
 | WS | Scope | Branch (write yours here) | Owner thread |
 |----|-------|---------------------------|--------------|
 | WS1 | Repo scaffold, mesh, transient nonlinear solver, verification ladder, integration/merging | `claude/project-thread-3ve605` | Build brake disc heat solver |
-| WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `gradients-optimizer` | adjoint + optimizer thread |
+| WS2+3 | Discrete adjoint (backward in time), KS aggregation, FD gradient checks, Taylor test, cost comparison; SLSQP optimization, >=2 starts, history, multipliers, with vs without nonlinearity, optional uncertainty bonus | `claude/project-thread-1qs3ox` | adjoint + optimizer thread |
 | WS4 | Website: GitHub Pages report (10 sections), three.js viewer (8 requirements) | _fill in_ | |
 | WS5 | GUIDE.md beginner guide (each WS also adds notes to its own GUIDE section) | `claude/project-thread-c068hs` | guide thread |
 
@@ -175,7 +175,7 @@ Verification ladder plan (WS1):
 | V7 | Invariance: rotate/translate mesh, mesh-independence of peak T | identical results |
 | V8 | (WS2+3) adjoint vs central FD, every constraint, both variable types; Taylor test | |
 
-## WS2+3: Adjoint gradients + optimization (branch `gradients-optimizer`)
+## WS2+3: Adjoint gradients + optimization (branch `claude/project-thread-1qs3ox`)
 _section owned by the adjoint + optimizer thread_
 
 Code lives in `optim/` (does not touch `brakeopt/`):
