@@ -289,7 +289,7 @@ This earns the optional **+5 "design under uncertainty" bonus**.
 
 The report itself has the 10 sections the handout lists (Summary, Formulation, Analysis model, Verification, Sensitivities, Optimization, Nonlinear component, Results table, Bonus, Limitations + AI-use statement).
 
-**One thing only you can do:** turn on GitHub Pages in the repository: **Settings → Pages → Deploy from a branch → `main`, folder `/docs`**. Then open the site in a private browser window to check it, and submit both links (repository and site) on Canvas.
+**The site is live** at <https://sgarteiz9090.github.io/Project4/> (GitHub Pages serves the `docs/` folder of `main`). Open it in a private browser window to check it, then submit both links (repository and site) on Canvas.
 
 ---
 
@@ -349,7 +349,7 @@ The bonus is capped at +15, and we target all three bonuses.
 ## 7. Things to watch / open risks
 
 - **Structure approval.** The handout says teams proposing their own structure needed instructor approval by Nov 4. A brake disc is close to the menu's "heat sink" (the vanes act like fins), but it is not on the menu. Worth a short email to the instructor.
-- **Turn on GitHub Pages** (section 4.11) and check the live site in a private window. Math only renders on the live site, not on github.com.
+- **Check the live site** (<https://sgarteiz9090.github.io/Project4/>) in a private window before submitting. Math only renders on the live site, not on github.com.
 - **Deadline:** the final site is due Nov 25; the commit at the deadline is graded.
 - **Limitations worth stating in the report:** the coarse optimizer mesh reads the peak about 5 °C low (V9); the convection coefficients come from textbook correlations, not measurement; mechanical stress and thermal distortion (coning) are not modelled.
 
@@ -385,6 +385,7 @@ The handout requires: *"what the coding agent wrote, which parts you derived or 
 ## 10. Change log of this guide
 
 - 2026-11-24, first draft from the project plan, before any code existed.
+- 2026-11-24, GitHub Pages is live; removed the "turn on Pages" to-do.
 - 2026-11-24, hub limit changed to 220 °C (grease dropping point). Updated to the rerun: 7.20 kg optimum, both limits active (multipliers 0.0188 and 0.0058 kg/°C), linear-model design 6.85 kg failing at 722.8 °C, robust design 9.67 kg.
 - 2026-11-24, checked every number against the final full-run results.json (timings updated: forward 1.8 s, adjoint 2.5 s, FD 85 s).
 - 2026-11-24, updated with what was actually built: mesh and scenario details, the 10-test ladder results, gradient-check and cost numbers, the optimized design and its multiplier, the with/without-nonlinearity comparison, the uncertainty bonus, the website features, and a filled-in AI-use statement draft with three caught bugs.
