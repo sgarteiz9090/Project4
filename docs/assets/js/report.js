@@ -248,7 +248,8 @@ function plot({ series, xlog = false, ylog = false, xlabel = "", ylabel = "", hl
 // reference line of a given slope through the first point of a series (log-log)
 function slopeRef(x, y, p, label) {
   if (!x || !x.length) return null;
-  return { x: [x[0], x[x.length - 1]], y: [y[0], y[0] * (x[x.length - 1] / x[0]) ** p], label, dash: true, markers: false, color: "#9ca3af" };
+  const m = Math.floor((x.length - 1) / 3); // anchor away from the large-step end and the round-off floor
+  return { x: [x[0], x[x.length - 1]], y: [y[m] * (x[0] / x[m]) ** p, y[m] * (x[x.length - 1] / x[m]) ** p], label, dash: true, markers: false, color: "#9ca3af" };
 }
 
 const PLOTS = {
