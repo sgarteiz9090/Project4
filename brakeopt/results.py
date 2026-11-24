@@ -30,9 +30,9 @@ def design_block(d, p: Params | None = None, label: str = "", max_frames: int = 
     fr, hb = m.face_nodes("friction"), m.face_nodes("hub")
     idx = np.unique(np.round(np.linspace(0, len(sol.t) - 1, min(max_frames, len(sol.t)))).astype(int))
     cons = [
-        {"name": "peak_face_T", "label": "Peak friction-surface temperature", "value_C": round(tf - C0, 2),
+        {"name": "peak_face_T", "label": "Peak friction-surface temperature", "value_C": round(tf - C0, 2), "true_max_C": round(tf - C0, 2),
          "limit_C": round(p.T_face_max - C0, 2), "pass": bool(tf <= p.T_face_max + 1e-9)},
-        {"name": "peak_hub_T", "label": "Peak hub / bell-mounting temperature", "value_C": round(th - C0, 2),
+        {"name": "peak_hub_T", "label": "Peak hub / bell-mounting temperature", "value_C": round(th - C0, 2), "true_max_C": round(th - C0, 2),
          "limit_C": round(p.T_hub_max - C0, 2), "pass": bool(th <= p.T_hub_max + 1e-9)},
     ]
     lo_ok = bool(np.all(d >= np.r_[[p.tv_min] * 12, [p.tc_min] * 12] - 1e-12))
