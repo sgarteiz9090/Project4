@@ -14,12 +14,11 @@ class BrakeSolver:
     def __init__(self, radiation=True, kT=True, params=None):
         from brakeopt import api   # imported lazily so the toy tests run without it
         self.api = api
-        self.kw = {"radiation": radiation, "kT": kT}
-        if params is not None:
-            self.kw["p"] = params
+        self.kw = {"radiation": radiation, "kT": kT, "p": params}
+        self.p = params
         self.radiation, self.kT = radiation, kT
-        self.x0 = np.asarray(api.x0(), dtype=float)
-        lb, ub = api.bounds()
+        self.x0 = np.asarray(api.x0(params), dtype=float)
+        lb, ub = api.bounds(params)
         self.lb, self.ub = np.asarray(lb, float), np.asarray(ub, float)
 
     def forward(self, d):
@@ -45,7 +44,7 @@ class BrakeSolver:
         return self.api.vjp_d_all(d, T_hist, lam_hist, **self.kw)
 
     def mass(self, d):
-        return float(self.api.mass(d))
+        return float(self.api.mass(d, self.p))
 
     def dmass_dd(self, d):
-        return np.asarray(self.api.dmass_dd(d), dtype=float)
+        return np.asarray(self.api.dmass_dd(d, self.p), dtype=float)
