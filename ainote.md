@@ -180,7 +180,7 @@ T^4), so Newton's method guesses, measures how wrong the guess is, and corrects,
 | V6 | MMS transient, all nonlinear terms | order in dt 1.00 |
 | V7a/b | Heat input = kinetic-energy budget; stored + lost = input | exact; imbalance 2e-16 |
 | V8 | Newton on the braking problem | quadratic (order ~2.2): 2e2, 6e-1, 2e-6, 3e-13 |
-| V9 | Mesh convergence of peak face T (x1, x2, x3 meshes) | (slow, running) |
+| V9 | Mesh convergence of peak face T (x1, x2, x3 meshes) | 683.2, 686.9, 687.6 C; coarse mesh 4.7 K (0.5 %) below the Richardson limit 687.8 C (optimizer mesh is slightly unconservative) |
 | V10 | Every exterior face belongs to exactly one boundary set | 184 = 184 |
 
 Bug caught by the ladder (for the AI-use statement): in V3 the agent's first version measured the
@@ -202,7 +202,7 @@ energy put in is accounted for as heat stored in the iron plus heat lost to air 
 Mesh JSON also includes `faces` (boundary sets, incl. `sym_*` planes) to help the viewer draw surfaces.
 
 **In progress**
-- V9 mesh study; integration of branches.
+- Integration of branches (checking remote branches periodically).
 
 **Next**
 - Re-run `scripts/run_all.py` full once WS2+3 optimization is final.
