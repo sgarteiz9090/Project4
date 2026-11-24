@@ -2,7 +2,7 @@
 
 *For someone who only half-follows the lectures and wants to know what was built, why, and how each piece earns points.*
 
-> **Status of this guide (2026-11-24).** Updated from what the workstreams actually built and reported in [`ainote.md`](ainote.md). The numbers here are the ones the full run reported. The website always reads its numbers from `docs/assets/results.json`, so if this guide and the website ever disagree, **the website is right** and this guide is stale.
+> **Status of this guide (2026-11-24).** Updated from what the workstreams actually built and reported in [`ainote.md`](ainote.md), and checked against the final full run of `scripts/run_all.py` (`docs/assets/results.json`). The website always reads its numbers from `docs/assets/results.json`, so if this guide and the website ever disagree, **the website is right** and this guide is stale.
 
 ---
 
@@ -64,7 +64,7 @@ The handout says every problem has the form *"minimize something, subject to lim
   start   │   24 thicknesses ──► [1] BUILD MESH ──► [2] HEAT SIMULATION    │
   design ─┼─►      d                (geometry)        (temperatures over   │
           │       ▲                                     the whole braking   │
-          │       │                                     run, ~1.6 s)       │
+          │       │                                     run, ~1.8 s)       │
           │       │                                         │              │
           │       │                                         ▼              │
           │  [5] OPTIMIZER  ◄── mass, max temps ◄── [3] SCORE THE DESIGN   │
@@ -72,7 +72,7 @@ The handout says every problem has the form *"minimize something, subject to lim
           │    the 24 knobs        ▲                      ▼                │
           │    this way")          └──────────── [4] ADJOINT: gradients    │
           │                                      of every score w.r.t.     │
-          │                                      all 24 knobs (~2.4 s)     │
+          │                                      all 24 knobs (~2.5 s)     │
           └───────────────────────────────────────────────────────────────┘
                      │ when nothing improves any more
                      ▼
@@ -86,7 +86,7 @@ Where each piece lives in the repository:
 | Folder / file | What's in it | Workstream | Rubric points it mainly earns |
 |---|---|---|---|
 | `brakeopt/` | Mesh, heat solver, Newton, functionals | WS1 | Formulation 10, Analysis & verification 20, Nonlinear 15, fully-nonlinear bonus +5 |
-| `verification/ladder.py` | The 10 verification tests | WS1 | Analysis & verification 20 |
+| `verification/ladder.py` | The 10 verification tests (13 checks) | WS1 | Analysis & verification 20 |
 | `optim/` | Adjoint, KS, gradient checks, SLSQP, with/without nonlinearity, uncertainty | WS2+3 | Sensitivity 20, Optimization 15, Nonlinear 15, time-dependence bonus +5, uncertainty bonus +5 |
 | `docs/` | The website: report (`index.md`), 3D viewer, `results.json` | WS4 | Website 10, Presentation 5 |
 | `scripts/run_all.py` | The one command that regenerates every number | WS1 | Reproducibility 5 |
@@ -137,7 +137,7 @@ $$M\,\dot{T} + K(T)\,T = F(t)$$
 
 ### 4.3 Stepping through time (implicit Euler)
 
-The braking run lasts about a minute, so we march forward in small time steps: 0.1 s while braking and 0.5 s while accelerating, which gives 144 steps. "Implicit Euler" means each step solves for the *new* temperatures using the *new* conditions, which stays stable even with fairly large steps. One full braking run takes about **1.6 seconds** on a laptop.
+The braking run lasts about a minute, so we march forward in small time steps: 0.1 s while braking and 0.5 s while accelerating, which gives 144 steps. "Implicit Euler" means each step solves for the *new* temperatures using the *new* conditions, which stays stable even with fairly large steps. One full braking run takes about **1.8 seconds** on a laptop.
 
 ### 4.4 The nonlinear part: why Newton's method is needed
 
@@ -182,7 +182,7 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 
 ### 4.6 Verification: proving the solver is right before trusting it
 
-**Why.** A solver written with a coding agent "is wrong until proven otherwise" (handout). We prove it by running problems where we already know the exact answer and showing that our code gets it. The handout requires at least six tests in a table: our number, the exact number, and the relative error. We have ten, and **all pass** (`python -m verification.ladder`):
+**Why.** A solver written with a coding agent "is wrong until proven otherwise" (handout). We prove it by running problems where we already know the exact answer and showing that our code gets it. The handout requires at least six tests in a table: our number, the exact number, and the relative error. We have ten tests (13 rows in the report table, because V3, V4 and V7 each have two parts), and **all pass** (`python -m verification.ladder`):
 
 | ID | Test, in plain words | Result |
 |----|------|--------|
@@ -205,9 +205,9 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 
 **What a gradient is.** For each of the 24 thicknesses, the gradient says: *if I make this thickness slightly bigger, how much does the peak temperature (or the mass) change?* It is a list of 24 sensitivities, one per knob, for each score.
 
-**The slow way (finite differences).** Nudge knob 1, rerun the whole braking simulation, and see what changed. Repeat for all 24 knobs. On our model that takes **78 seconds** for one gradient, and the optimizer needs a gradient every iteration.
+**The slow way (finite differences).** Nudge knob 1, rerun the whole braking simulation, and see what changed. Repeat for all 24 knobs. On our model that takes **85 seconds** for one gradient, and the optimizer needs a gradient every iteration.
 
-**The clever way (the adjoint method).** Run the simulation once forward. Then run **one backward pass**, and out come the sensitivities of both temperature constraints to *all 24 knobs at once*. On our model it takes **2.4 seconds, about 20× faster**. The gap grows with the number of knobs, because the adjoint's cost doesn't depend on how many there are.
+**The clever way (the adjoint method).** Run the simulation once forward. Then run **one backward pass**, and out come the sensitivities of both temperature constraints to *all 24 knobs at once*. On our model it takes **2.5 seconds, about 20× faster**. The gap grows with the number of knobs, because the adjoint's cost doesn't depend on how many there are.
 
 **Analogy.** You're at a party and want to know how much each of 24 guests added to the noise. The slow way: ask each guest to leave, one at a time, and measure. The adjoint way: record the room once, then play the recording backward through a model of the room's acoustics, and it tells you every guest's contribution in one pass.
 
@@ -218,7 +218,7 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 **How we proved the gradients are right.**
 - **Gradient-check table:** the adjoint answer against the brute-force (central finite difference) answer, for mass, the face constraint and the hub constraint, on both vane and cheek thicknesses. They agree to about **9 digits** (worst case 8e-8 of the gradient size).
 - **Taylor test plot:** as the finite-difference step ε shrinks, the mismatch falls like ε² (100× smaller per 10× smaller step) until round-off takes over. A flat line would mean a bug.
-- **Cost comparison:** forward 1.6 s, adjoint 2.4 s, finite differences 78 s.
+- **Cost comparison:** forward 1.8 s, adjoint 2.5 s, finite differences 85 s.
 
 ### 4.8 The optimizer (SLSQP)
 
@@ -228,7 +228,7 @@ Why the difference: if you pretend hot iron conducts as well as it does at 200 �
 
 **What we did, following the handout's rules:**
 - **Scaling:** the optimizer works with `x = d / d₀`, mass divided by the starting mass, and constraints written as `KS/limit − 1 ≤ 0`, so every number is around 1. Optimizers behave badly when one number is 0.003 and another is 700.
-- **Three starting designs:** the baseline, every thickness at its maximum, and every thickness halfway between its bounds. **All three ended at 7.12 kg**, within 0.002 kg of each other. That strongly suggests we found the real best design, not a local dip.
+- **Three starting designs:** the baseline, every thickness at its maximum, and every thickness halfway between its bounds. **All three ended at 7.12 kg**, within 0.0015 kg of each other. That strongly suggests we found the real best design, not a local dip.
 - **History saved** for every iteration (design, mass, temperatures) for the convergence plot.
 
 **What the optimized disc looks like, and why it makes sense:**
@@ -266,7 +266,7 @@ This earns the optional **+5 "design under uncertainty" bonus**.
 
 ### 4.11 Results file and website
 
-**`results.json`.** One file, written only by `scripts/run_all.py`, holding every number the report shows and the geometry and temperatures that the 3D viewer draws. **No number is typed into the report by hand**: when the page opens, a script reads `results.json` and fills in every number, table and plot. So if the solver changes, one command (`python scripts/run_all.py`, about 45 minutes) regenerates the whole site. That earns the **Reproducibility 5 points**.
+**`results.json`.** One file, written only by `scripts/run_all.py`, holding every number the report shows and the geometry and temperatures that the 3D viewer draws. **No number is typed into the report by hand**: when the page opens, a script reads `results.json` and fills in every number, table and plot. So if the solver changes, one command (`python scripts/run_all.py`, about 48 minutes) regenerates the whole site. That earns the **Reproducibility 5 points**.
 
 **The website.** A GitHub Pages site built from Markdown (`docs/index.md`, Jekyll), with math rendered by MathJax and a three.js 3D viewer. The viewer meets all 8 handout requirements:
 
@@ -377,4 +377,5 @@ The handout requires: *"what the coding agent wrote, which parts you derived or 
 ## 10. Change log of this guide
 
 - 2026-11-24, first draft from the project plan, before any code existed.
+- 2026-11-24, checked every number against the final full-run results.json (timings updated: forward 1.8 s, adjoint 2.5 s, FD 85 s).
 - 2026-11-24, updated with what was actually built: mesh and scenario details, the 10-test ladder results, gradient-check and cost numbers, the optimized design and its multiplier, the with/without-nonlinearity comparison, the uncertainty bonus, the website features, and a filled-in AI-use statement draft with three caught bugs.

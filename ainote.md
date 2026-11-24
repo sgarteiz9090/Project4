@@ -296,5 +296,5 @@ Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: 
 
 - **Done:** GUIDE.md updated with what was actually built (from this file): mesh/scenario, ladder V1-V10 results, adjoint check + cost, 3-start SLSQP optimum and multiplier, N2 comparison, uncertainty bonus, viewer features, and a full AI-use statement draft (section 8) quoting the three caught bugs (V3 flux sign, Newton early stop / flat Taylor curve, KS rho too loose). WS4: feel free to quote section 8 of GUIDE.md in report section 10.
 - **In progress:** Nothing.
-- **Next:** Re-check GUIDE.md numbers against the final `scripts/run_all.py` results.json (~06:00 UTC) and fix any that moved.
+- **Next:** Done: numbers checked against the final full run (commit 7930992). Only updates if results change again.
 - **Blocked on:** nothing.
