@@ -208,9 +208,25 @@ The design optimized without the nonlinear terms differs in mass by <span class=
 
 ## 10. Limitations and AI-use statement
 
-**Limitations.** Convection coefficients come from correlations, not from a CFD model of the vane channels; the pad heat is treated as circumferentially uniform; thermal stresses and the resulting cracking are represented only through the temperature limit; one braking scenario is designed for.
+**Limitations.** Convection coefficients come from correlations, not from a CFD model of the vane channels. The pad heat is treated as circumferentially uniform. Thermal stresses and cracking are represented only through the temperature limit. The nominal design is sized for one braking scenario (the robust design in section 9 covers three). The optimizer's mesh reads the peak face temperature about 0.5 % below the mesh-converged (Richardson) value (verification V9), so the optimum is slightly unconservative.
 
-**AI-use statement.** A coding agent (Claude) wrote most of the code in this repository, split into workstreams coordinated through `ainote.md`. This website, the 3D viewer (`docs/assets/js/viewer.js`) and the report page that fills every number from `results.json` (`docs/assets/js/report.js`) were written by the agent; we checked the viewer against the handout's eight requirements at desktop and phone width. The parts we derived or checked ourselves, and one bug the verification caught, are listed in `ainote.md` and `GUIDE.md`.
+**AI-use statement.** The solver, adjoint, optimization scripts and this website were written with a coding agent (Claude Code), working in parallel workstreams that coordinated through a shared status file (`ainote.md`).
+
+<p class="callout"><b>[Sivan: replace this box with what you derived or checked yourself, for example: chose the structure, variables, objective and limits and their sources; checked the ladder's exact solutions; read the verification and gradient-check results and the optimized design for physical sense.]</b></p>
+
+| Component | Written by | How it was checked |
+|---|---|---|
+| Mesh generator (`brakeopt/mesh.py`) | Agent | Rotation invariance, manufactured solution on the curved mesh, every boundary face in exactly one set |
+| Heat solver and Newton (`brakeopt/model.py`, `solver.py`) | Agent | Verification ladder against exact solutions; Newton quadratic convergence; energy balance |
+| Adjoint gradients (`optim/adjoint.py`) | Agent | Adjoint vs. central finite differences for every constraint and both variable types; Taylor test |
+| Optimization (`optim/optimize.py`) | Agent | Three starting designs reach the same optimum; constraints re-checked at the optimum; linear optimum re-checked with full physics |
+| Website and 3D viewer (`docs/`) | Agent | Automated test that every table and plot key exists in `results.json`; checked against the eight viewer requirements at desktop and phone width |
+
+**Bugs the verification caught.**
+
+1. *Sign error in the heat flux (caught by verification V3).* The agent's first version measured the heat flux leaving the cold end of the test wall with the wrong sign, so V3 failed (−1.29×10⁶ vs. +1.29×10⁶ W/m²). Comparing against the exact Kirchhoff-transform flux caught it.
+2. *Newton stopping too early (caught by the gradient check).* On the stand-in model, the first Newton stopping rule quit after one iteration. Adjoint and finite-difference gradients disagreed (4×10⁻⁷) and the Taylor-test curve was flat instead of falling as ε². Stopping on the size of the Newton update fixed it.
+3. *KS too loose (caught by comparing KS with the true maximum).* The first KS sharpness overestimated the true peak by 47 to 65 °C, which would have left iron in the disc that it did not need. Raising ρ brought the gap down to 3 to 5 °C.
 
 ## Reproducibility
 
