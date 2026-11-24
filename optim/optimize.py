@@ -12,14 +12,10 @@ def run_slsqp(prob, x_start, maxiter=200, ftol=1e-7, label="start"):
 
     def cb(xk):
         e = prob.evaluate(xk)
-        hist.append({"iter": len(hist) + 1, "f": float(e["f"]), "mass_kg": float(e["mass"]),
-                     "g": e["g"].tolist(), "Tmax_C": e["Tmax"].tolist(),
-                     "max_violation": float(max(0.0, e["g"].max()))})
+        hist.append(_rec(len(hist), e))
 
     e0 = prob.evaluate(np.asarray(x_start, float))
-    hist.append({"iter": 0, "f": float(e0["f"]), "mass_kg": float(e0["mass"]),
-                 "g": e0["g"].tolist(), "Tmax_C": e0["Tmax"].tolist(),
-                 "max_violation": float(max(0.0, e0["g"].max()))})
+    hist.append(_rec(0, e0))
     nf0, na0 = prob.n_forward, prob.n_adjoint
     t0 = time.perf_counter()
     res = minimize(prob.f, x_start, jac=prob.df, method="SLSQP", bounds=prob.bounds(),
@@ -33,6 +29,13 @@ def run_slsqp(prob, x_start, maxiter=200, ftol=1e-7, label="start"):
             "n_forward": prob.n_forward - nf0, "n_adjoint": prob.n_adjoint - na0,
             "slsqp_multipliers": _jsonable(getattr(res, "multipliers", None)),
             "history": hist, "kkt": kkt}
+
+
+def _rec(i, e):
+    return {"iter": i, "f": float(e["f"]), "mass_kg": float(e["mass"]),
+            "g": e["g"].tolist(), "Tmax_C": e["Tmax"].tolist(),
+            "g_face_C": float(e["Tmax"][0]), "g_hub_C": float(e["Tmax"][1]),
+            "max_violation": float(max(0.0, e["g"].max()))}
 
 
 def _jsonable(m):
@@ -76,6 +79,8 @@ def kkt_readout(prob, x, act_tol=1e-3, bnd_tol=1e-6):
             "active_constraints": [prob.cons[k]["name"] for k in active_c],
             "constraint_multipliers": con_mu,
             "kg_per_percent_relaxation": {k: v * 0.01 * prob.m0 for k, v in con_mu.items()},
+            "kg_per_K_relaxation": {prob.cons[k]["name"]: float(mu[i]) * prob.m0 / prob.cons[k]["limit_C"]
+                                    for i, (t, k) in enumerate(labels) if t == "con"},
             "lower_bounds_active": at_lb.tolist(), "upper_bounds_active": at_ub.tolist(),
             "bound_multipliers": {f"{t}{k}": float(mu[i]) for i, (t, k) in enumerate(labels)
                                   if t != "con"},

@@ -233,22 +233,33 @@ Code lives in `optim/` (does not touch `brakeopt/`):
 - `optim/brake_adapter.py`: binds `brakeopt.api` (radiation/kT flags fixed per instance).
 - `optim/toy_problem.py`: 1D nonlinear transient stand-in with the same API, used only by `tests/test_adjoint_toy.py`.
 
-**Done**
-- Adjoint derivation + implementation; verified on the 1D stand-in (nonlinear k(T) + radiation): adjoint vs central FD agree to ~1e-10 relative, Taylor test falls as eps^2 over 5 decades.
-- Bug the check caught (for the AI-use statement): the first Newton stopping test (residual relative to ||rho c T||) stopped after 1 iteration, so FD and adjoint disagreed at 4e-7 with a *flat* Taylor curve. Fix: stop on the Newton update, tol 1e-13. **WS1: please make sure `newton_tol` is tight enough for gradient checks (converge to ~1e-12 relative in the update), otherwise FD checks will flatten out.**
+Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: `python -m optim.run_ws23` (writes out/ws23.json, ~42 min); normally run by `scripts/run_all.py`.
+
+**Done** (numbers below from the full run at commit time; the site must read them from results.json)
+- Adjoint on the real 3D model: adjoint vs central FD for mass, face KS, hub KS, 8 vars (4 vane, 4 cheek), full physics: max error 8e-8 of the gradient norm (most entries 1e-9 to 1e-10). Linearized model: 3e-10. Taylor test (random direction): central-FD error falls as eps^2 from eps=1e-1 to 1e-5, then round-off (figure `assets/taylor_test.png`).
+- Cost: forward 1.6 s, adjoint sweep 2.4 s (both constraints), central FD for 24 vars 78 s -> 20x faster, and the gap grows with variable count.
+- KS: I set `p.ks_rho = 1.0 /K` (was 0.1). At 0.1 the KS overshot the true peak by ~47 K (face) and ~65 K (hub), which would have forced a needlessly heavy design. At 1.0 the overshoot is ~3-5 K.
+- SLSQP, 3 starts (baseline, all-max, midpoint): all converge to 7.12 kg (spread 0.002 kg) from 9.25 kg baseline (-23%). Active: friction-face temperature only (true peak 695.9 C, KS = 700.0 C). Hub is inactive (233 C vs 250 C). Multiplier: 0.0196 kg/K, i.e. allowing 10 K more on the face would save ~0.2 kg. Active bounds: vanes 0-10 at 2 mm minimum, outermost vane at 8 mm maximum, cheeks 0-6 at 5 mm minimum; outer cheeks 9.4-10.9 mm carry the heat soak in the pad band.
+- N2 comparison: the linearized-model optimum is 6.68 kg but, re-checked with full physics, its face peaks at 722.5 C (fails 700 C). Attribution: freezing k at k(200 C) under-predicts the peak by 34 K (iron conducts worse when hot); linearizing radiation over-predicts by 9 K. So k(T) drives the design change, and ignoring nonlinearity gives an unsafe disc.
+- Uncertainty bonus: 3 scenarios (nominal, +20 km/h initial speed, +0.05 front bias); robust design satisfies all 6 constraints: 9.66 kg (+2.5 kg vs nominal optimum). The nominal optimum would hit 785 C in the +20 km/h case. Active: face temperature in the +20 km/h scenario, 0.062 kg/K. Gradients per scenario FD-checked (~1e-9).
+- results.json keys (via run_all): `sensitivities` {nonlinear, linear (raw tables + taylor), cost, gradient_check, taylor_plot, cost_view, figures}; `optimization` {algorithm, scaling, starts[name, iterations, final_mass_kg, converged, history[iter, mass_kg, g_face_C, g_hub_C, ...], kkt], best_start, spread_mass_kg, initial, linear, n2_comparison{..., attribution}, robust, active[constraint, multiplier, unit, meaning], active_bounds}. WS4: shapes as you asked; `cost_view` holds {n_vars, forward_s, adjoint_s, fd_s}.
+- Bug the verification caught (AI-use statement): on the stand-in model the first Newton stopping test quit after 1 iteration, so adjoint and FD disagreed at 4e-7 with a *flat* Taylor curve. Fixed by stopping on the Newton update; WS1 adopted an extra Newton iteration in the real solver.
 
 **In progress**
-- Waiting for `brakeopt/api.py` to be real; then: gradient-check table (both variable types, both constraints, rad on/off), Taylor plot, cost comparison.
+- Nothing.
 
 **Next**
-- SLSQP from >= 2 starts (baseline, all-max), history per iteration, active set + multipliers in kg per % limit relaxation; linear (radiation=False, kT=False) optimum for the N2 comparison; optional uncertainty bonus (sampled initial speed / front bias, KS over scenarios).
-- `optim/run_ws23.py` will return the `"sensitivities"`, `"optimization"`, `designs.optimized`, `designs.optimized_linear` blocks for `scripts/run_all.py` to merge in.
+- WS1: merge `claude/project-thread-1qs3ox` and run `python scripts/run_all.py` (the WS2+3 stage takes ~42 min).
 
 **Blocked on**
-- `brakeopt/api.py` implementation (WS1).
+- nothing
 
-**Plain-language note (for GUIDE.md)**
-- The *adjoint* answers "if I make vane 5 a little thicker, how much hotter or cooler does the hottest point on the disc get during the whole braking sequence?" for all 24 dimensions at once. It does that by running the heat simulation once forward in time, then running one extra, cheaper "backward" calculation from the last stop to the first, which tracks how much each moment's temperatures influence the final peak. Checking against brute force (nudging each dimension and re-running the simulation) proves the numbers are right.
+**Plain-language notes (for GUIDE.md)**
+- *Adjoint:* answers "if I make vane 5 a little thicker, how much hotter or cooler does the hottest point on the disc get during the whole braking sequence?" for all 24 dimensions at once. It runs the heat simulation once forward in time, then one cheaper backward pass from the last stop to the first, tracking how much each moment's temperatures influence the peak. We proved the numbers right by brute force (nudge each dimension, re-run): they agree to about 9 digits, and the backward pass is 20x faster than brute force.
+- *KS function:* the optimizer needs one smooth number for "hottest point anywhere, any time". KS is a soft maximum that sits a few degrees above the true peak, so meeting it guarantees the real peak is under the limit.
+- *Optimizer result:* starting from three different designs, SLSQP always lands on the same 7.1 kg disc (23% lighter than the 9.25 kg baseline). It thins the vanes and the inner cheek to their minimum and keeps metal only where the pad rubs, because that metal soaks up the heat of each stop. The only limit that stops it going lighter is the 700 C friction-face limit. Its "price" (multiplier) is about 20 g per degree: allow 10 C more and you could save about 0.2 kg.
+- *Why nonlinearity matters:* if we pretend cast iron conducts heat equally well when hot, the optimizer makes a 6.7 kg disc that really reaches 723 C and would crack. Including k(T) is what keeps the design safe.
+- *Uncertainty bonus:* a driver might brake from 270 km/h, not 250. Designing for that case too costs 2.5 kg more (9.7 kg), and shows the nominal optimum would reach 785 C in that case.
 
 ## WS4: Website (branch `website`)
 **Done**
