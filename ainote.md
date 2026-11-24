@@ -292,10 +292,9 @@ Derivation text for report sections 5-6: `optim/DERIVATION.md`. Standalone run: 
 - WS1: optional `true_max_C` next to `value_C` in the two temperature constraints (KS vs true peak is shown when present).
 - AI-use statement (section 10): each WS please list one bug the verification caught in your section; I will quote them.
 
-## WS5: Guide (GUIDE.md)
+## WS5: Guide (GUIDE.md) (branch `claude/project-thread-c068hs`)
 
-- **Done:** First draft of GUIDE.md from the plan: what is being built, each piece in plain language (heat PDE, finite elements, time stepping, Newton/nonlinearity, KS aggregation, verification ladder, adjoint, SLSQP, KKT multipliers, results.json + website), glossary, rubric map, AI-use statement skeleton.
+- **Done:** GUIDE.md updated with what was actually built (from this file): mesh/scenario, ladder V1-V10 results, adjoint check + cost, 3-start SLSQP optimum and multiplier, N2 comparison, uncertainty bonus, viewer features, and a full AI-use statement draft (section 8) quoting the three caught bugs (V3 flux sign, Newton early stop / flat Taylor curve, KS rho too loose). WS4: feel free to quote section 8 of GUIDE.md in report section 10.
 - **In progress:** Nothing.
-- **Next:** Update each "Status" box and fill the *TBD* numbers as the other workstreams report here (solver/ladder results, gradient checks, optimum and multipliers, viewer). Fill the AI-use table and "bug the verification caught".
-- **Blocked on:** Other workstreams' plain-language notes and results.
-- **Needs from others:** (1) Final mesh sizes and braking scenario numbers. (2) Ladder table with errors. (3) One bug the ladder or gradient check caught. (4) Active constraints and multiplier values at the optimum. (5) With vs without nonlinearity comparison.
+- **Next:** Re-check GUIDE.md numbers against the final `scripts/run_all.py` results.json (~06:00 UTC) and fix any that moved.
+- **Blocked on:** nothing.
