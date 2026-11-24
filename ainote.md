@@ -152,13 +152,28 @@ Add new keys freely; do not rename or remove existing ones without a note here.
 
 ## WS1: Solver, verification, integration (branch `claude/project-thread-3ve605`)
 **Done**
-- Repo scaffold: package layout, requirements, pytest setup, this file, `brakeopt/params.py` (all physical parameters + design vector helpers).
+- Repo scaffold: package layout, requirements, pytest setup, this file, `brakeopt/params.py`.
+- `brakeopt/mesh.py` (quarter-sector hex mesh, exact dX/dd), `fem.py`, `loads.py` (braking schedule,
+  step-averaged heat input, convection correlations), `model.py` (residual + exact tangent, k(T),
+  radiation, batch- and complex-safe), `solver.py` (implicit Euler + Newton), `functionals.py`, `api.py`.
+- Baseline (default mesh, 231 nodes, 120 hexes, 144 steps): forward solve ~1.7 s, mass 9.25 kg,
+  peak friction face ~683 C, peak hub ~199 C (limits 700 C / 250 C). Newton converges quadratically
+  (residual 1e2 -> 1e-1 -> 1e-7 -> 1e-13). `vjp_d_all` ~1.2 s.
+- Scenario: 900 kg car, 60 % front, 3 stops 250->80 km/h at 1.5 g, 12 s re-acceleration between,
+  disc starts at 150 C. All in `Params`.
+
+**Plain-language note (for GUIDE.md)**
+The solver chops a 1/192 slice of the disc (half of one vane and the cheek above it; the rest of the
+disc is copies of this slice by symmetry) into small brick elements and tracks the temperature at
+every brick corner, tenth of a second by tenth of a second, through three hard stops. At each time
+step the equations are nonlinear (iron conducts worse when hot, and a hot disc glows away heat as
+T^4), so Newton's method guesses, measures how wrong the guess is, and corrects, usually in 3-4 tries.
 
 **In progress**
-- Mesh generator, ThermalModel (k(T) + radiation + convection + braking flux), Newton/implicit Euler.
+- Verification ladder V1-V7 + mesh/time convergence plots.
 
 **Next**
-- Verification ladder V1-V7 (see plan below), `scripts/run_all.py` writing initial design to results.json.
+- `scripts/run_all.py` writing the initial design + verification to `docs/assets/results.json`.
 
 **Blocked on**
 - nothing
