@@ -29,7 +29,7 @@ Rules: `python -m pytest -q` must pass before merging to `main`. Only `scripts/r
 | Website + 8 viewer requirements, math renders | `docs/` |
 | One command reproduces everything | `python scripts/run_all.py` |
 | Beginner guide for Sivan | `GUIDE.md` (busbar); brake disc guide in `alternate_topic/GUIDE.md` |
-| AI-use statement with a bug the verification caught | report s.10; **Sivan must fill the bracketed "what I checked" box** |
+| AI-use statement with a bug the verification caught | report s.10; "what I checked myself" filled in by Sivan |
 
 ## Busbar: solver, verification, adjoint, optimization, site (owner: busbar thread)
 
@@ -56,6 +56,6 @@ bonuses with our transient nonlinear heat solver; the busbar was chosen as the m
 - Site in `docs/` (report with all 10 handout sections, three.js viewer meeting the 8 requirements), checked in headless Chromium at 1280 and 390 px.
 
 ## Guide (GUIDE.md) (owner: guide thread, branch `claude/project-thread-c068hs`)
-- **Done:** Busbar beginner guide as `GUIDE.md`: every piece in plain language, ladder V1-V12, gradient checks and cost, optimum and multiplier, hand-calculation (N2) comparison, robust bonus, glossary, rubric map, AI-use draft (section 8, Sivan's bracketed line left open), 30-second summary (section 9). Numbers checked against `docs/assets/results.json` from 49526e2.
+- **Done:** Busbar beginner guide as `GUIDE.md`: every piece in plain language, ladder V1-V12, gradient checks and cost, optimum and multiplier, hand-calculation (N2) comparison, robust bonus, glossary, rubric map, AI-use draft (section 8, Sivan's "what I checked myself" line filled in), 30-second summary (section 9). Numbers checked against `docs/assets/results.json` from 49526e2.
 - **Next:** Re-check if results change.
 - **Blocked on:** nothing.
